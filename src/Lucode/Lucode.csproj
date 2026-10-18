@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>lucode</AssemblyName>
     <RootNamespace>Lucode</RootNamespace>
-    <Version>0.3.0-dev</Version>
+    <Version>0.5.0</Version>
   </PropertyGroup>
 
 </Project>

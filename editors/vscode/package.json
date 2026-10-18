@@ -1,0 +1,28 @@
+{
+  "name": "lucode",
+  "displayName": "Lucode",
+  "description": "Syntax highlighting for the Lucode programming language",
+  "version": "0.1.0",
+  "publisher": "somore100",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/somore100/lucode" },
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "lucode",
+        "aliases": ["Lucode", "lucode"],
+        "extensions": [".luc"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "lucode",
+        "scopeName": "source.lucode",
+        "path": "./syntaxes/lucode.tmLanguage.json"
+      }
+    ]
+  }
+}

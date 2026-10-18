@@ -1,13 +1,20 @@
 using Lucode;
 
-const string Version = "0.3.0-dev";
+const string Version = "0.5.0";
 
-if (args.Length == 0 || args[0] is "-h" or "--help")
+if (args.Length == 0)
+{
+    Repl.Run(Version);
+    return 0;
+}
+
+if (args[0] is "-h" or "--help")
 {
     Console.WriteLine($"Lucode {Version}");
     Console.WriteLine();
-    Console.WriteLine("Usage: lucode <file.luc>");
-    return args.Length == 0 ? 1 : 0;
+    Console.WriteLine("Usage: lucode [file.luc]");
+    Console.WriteLine("       lucode            start an interactive prompt");
+    return 0;
 }
 
 if (args[0] is "-v" or "--version")

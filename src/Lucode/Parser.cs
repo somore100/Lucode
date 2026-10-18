@@ -39,11 +39,13 @@ public sealed class Parser
     private bool _inCommand;  // true while reading the body of a 'to' block
 
     // Commands defined so far (name -> number of inputs), so a call knows how many values to read.
-    private readonly Dictionary<string, int> _commands = new();
+    private readonly Dictionary<string, int> _commands;
 
-    public Parser(List<Token> tokens)
+    /// <param name="commands">Commands known from earlier input; the REPL passes the same one each time.</param>
+    public Parser(List<Token> tokens, Dictionary<string, int>? commands = null)
     {
         _tokens = tokens;
+        _commands = commands ?? new();
     }
 
     public List<Stmt> Parse()

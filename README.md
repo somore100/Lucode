@@ -20,7 +20,7 @@ else
     print "Access denied"
 ```
 
-> **Status:** early development, **v0.3 in progress**. The language works and is tested, but
+> **Status:** early development, **v0.5**. The language works and is tested, but
 > syntax may still change before 1.0.
 
 ## Why Lucode?
@@ -191,6 +191,19 @@ greet "Sam"            # Hello, Sam
 - Inside a command, inputs and new variables are local, and assigning never
   changes the outside. Rules always look at the top-level values.
 - `to` goes at the top level of the file.
+
+### Trying things out: the prompt
+
+Run `lucode` with no file to get an interactive prompt. Everything you define
+stays around for the next line. A line that opens a block (`if`, `when`,
+`repeat`, `while`, `to`) keeps reading lines until you enter an empty one.
+Errors are shown and the session carries on. Type `exit` to leave.
+
+```
+>>> x = 2
+>>> print x * 3
+6
+```
 
 ### Output
 

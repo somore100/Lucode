@@ -1,7 +1,7 @@
 # Lucode — Handoff
 
 Paste or attach this file at the start of a new chat to continue the project.
-Last updated: 2026-10-18, version 0.3.0-dev (`when` done, `why` next).
+Last updated: 2026-10-18, version 0.5.0 (`why`, loops, commands, REPL and VS Code grammar done).
 
 ## What Lucode is
 
@@ -42,6 +42,10 @@ rule: *keep it small and coherent; add a feature only when it solves a real prob
 | `when` already true | Fires immediately when declared ("not yet declared" counts as false). |
 | `when` side effects | Allowed; cascades allowed; 100 nested firings in a row is an error showing the loop. |
 | `when` placement | Top level only; no `else`. |
+| `why` | `why NAME` only (not expressions). Looks through rules to plain variables; `and` names the false side, `or` the true side, both when neither settled it. Several reasons joined with ` and `. |
+| Loops | `repeat N times` (whole number >= 0; `times` is only special there) and `while condition`. Both cap at 1,000,000 runs. `for each` waits for lists. `when` is still checked after every assignment inside loops. |
+| Commands | `to name inputs` + indented body; call as `name v1 v2` (no parentheses; arity known from the definition, so define before use; use `(...)` to group). `give value` returns. A command without `give` only works as a line of its own. Inside a command, assignments are local and never touch outer variables or trigger `when`; rules always read top-level values. Recursion capped at 200. `to` is top level only. |
+| REPL | `lucode` with no file. Persistent state; block openers read until an empty line; `exit`/`quit`/Ctrl+D. Waiting-`when` typo check is skipped (program never ends). |
 | Independence | Lucode is standalone (CLI, later VS Code). Blockliner is an add-on via a language pack, never a dependency. |
 
 ## Rules (v0.2) — exact semantics
@@ -90,44 +94,52 @@ src/Lucode/
   Lexer.cs        Line-based; emits Indent/Dedent/Newline. Keywords dictionary.
                   Tabs = 4 spaces. Comments with #. String escapes \n \t \" \\
   Ast.cs          Records: LiteralExpr, VariableExpr, UnaryExpr, BinaryExpr,
-                  LogicalExpr; AssignStmt, RuleStmt, PrintStmt, IfStmt, WhenStmt
+                  LogicalExpr, CallExpr; AssignStmt, RuleStmt, PrintStmt, IfStmt,
+                  WhenStmt, WhyStmt, RepeatStmt, WhileStmt, CommandStmt,
+                  GiveStmt, ExprStmt
   Parser.cs       Recursive descent. Grammar documented at the top of the file.
                   Precedence: or < and < not < comparison < + - < * / % < unary -
                   "else if" is parsed as an else block containing one IfStmt.
                   An identifier at line start not followed by '=' is
-                  "Unknown command 'x'" with a did-you-mean hint.
+                  "Unknown command 'x'" with a did-you-mean hint (unless x is
+                  a command defined earlier: then it's a call). _commands maps
+                  name -> input count; the REPL shares one table across lines.
   Interpreter.cs  Values are C# double / string / bool.
                   _variables dictionary, _rules dictionary, _evaluating list
                   for cycle detection. _watchers (Watcher: WhenStmt, WasTrue,
                   Waiting) and _firing (stack for the loop limit).
+                  _commands, _locals (null at top level) and _callDepth for
+                  commands; GiveSignal exception implements 'give'.
+                  Explain/Collect implement 'why'.
   LucodeError.cs  LucodeError(line, message); MissingValueError subclass;
                   Suggest.Hint() uses edit distance
                   (with swapped-letter support) for "Did you mean".
-  Program.cs      `lucode file.luc`, --help, --version. Errors go to stderr as
+  Repl.cs         Interactive prompt (see Decisions).
+  Program.cs      `lucode [file.luc]` (no file = REPL), --help, --version. Errors go to stderr as
                   "file.luc, Line N: message", exit code 1.
+editors/vscode/   TextMate grammar + language configuration for .luc files.
 ```
 
 Tests: `tests/cases/*.luc` + `*.expected` (stdout+stderr combined; the file is
 copied to `test.luc` before running, so error messages say `test.luc`).
 Run with `./tests/run.sh` (set `SKIP_BUILD=1` to reuse an existing `build/`).
-**45 tests, all passing** at 0.3.0-dev.
+`./tests/repl.sh` feeds `tests/repl.in` to the REPL.
+**74 case tests + the REPL test, all passing** at 0.5.0.
 
 No NuGet packages are used. If NuGet is unreachable, restore offline:
 `dotnet restore src/Lucode --source <empty dir>`.
 
 ## Next steps, in order
 
-1. ~~`when`~~ — **done** (see semantics above).
-2. **`why`** (v0.3, then release 0.3.0): `why can_enter` prints the value and which inputs decided
-   it, e.g. `can_enter is false, because is_owner is false`. Needs the evaluator
-   to record which sub-expressions determined a short-circuit result.
-3. **Loops** (v0.4): syntax not chosen yet. Candidates: `repeat 3 times`,
-   `while condition`, `for each item in list`.
-4. **Commands/functions** (v0.5): syntax not chosen yet.
-5. **Tooling:** REPL, VS Code TextMate grammar (syntax highlighting), later an LSP.
-6. **Blockliner language pack** (see below).
-7. **Later:** multiple rules with the same name = "any of them" (inference),
-   lists, text operations, input.
+1. ~~`when`, `why`, loops, commands, REPL, VS Code grammar~~ — **done**.
+2. **Lists** (needed for `for each item in list`), then text operations and input.
+3. **Tooling:** later an LSP; the grammar currently can't colour calls like `add 2 3`.
+4. **Blockliner language pack** (see below).
+5. **Later:** multiple rules with the same name = "any of them" (inference).
+
+Ideas not decided: bare expressions echoing their value in the REPL; letting
+commands read/write top-level variables (raises the question of `when` firing
+from inside a command).
 
 Still-open questions from the original design notes: how types work long-term,
 how editor warnings differ from run errors, whether `nor` is worth adding.

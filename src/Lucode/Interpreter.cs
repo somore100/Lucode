@@ -50,10 +50,13 @@ public sealed class Interpreter
         _output = output ?? Console.Out;
     }
 
-    public void Run(List<Stmt> program)
+    /// <param name="finish">False in the REPL, where the program isn't over after each chunk.</param>
+    public void Run(List<Stmt> program, bool finish = true)
     {
         foreach (var statement in program)
             Execute(statement);
+
+        if (!finish) return;
 
         // A 'when' still waiting on a missing name at the end almost always means a typo.
         foreach (var watcher in _watchers)

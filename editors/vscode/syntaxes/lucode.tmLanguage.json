@@ -1,0 +1,80 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Lucode",
+  "scopeName": "source.lucode",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#command-definition" },
+    { "include": "#rule-definition" },
+    { "include": "#repeat" },
+    { "include": "#statement-keyword" },
+    { "include": "#assignment" },
+    { "include": "#expression" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.line.number-sign.lucode",
+      "match": "#.*$"
+    },
+    "command-definition": {
+      "comment": "to add a b",
+      "match": "(?i)^\\s*(to)\\s+([A-Za-z_][A-Za-z0-9_]*)((?:\\s+[A-Za-z_][A-Za-z0-9_]*)*)",
+      "captures": {
+        "1": { "name": "keyword.control.lucode" },
+        "2": { "name": "entity.name.function.lucode" },
+        "3": { "patterns": [{ "match": "[A-Za-z_][A-Za-z0-9_]*", "name": "variable.parameter.lucode" }] }
+      }
+    },
+    "rule-definition": {
+      "comment": "rule can_enter = ...",
+      "match": "(?i)^\\s*(rule)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.other.lucode" },
+        "2": { "name": "entity.name.variable.rule.lucode" }
+      }
+    },
+    "repeat": {
+      "comment": "repeat 3 times: 'times' is only a keyword here",
+      "match": "(?i)^\\s*(repeat)\\b(.*?)\\b(times)\\b",
+      "captures": {
+        "1": { "name": "keyword.control.lucode" },
+        "2": { "patterns": [{ "include": "#expression" }] },
+        "3": { "name": "keyword.control.lucode" }
+      }
+    },
+    "statement-keyword": {
+      "patterns": [
+        { "name": "keyword.control.lucode", "match": "(?i)\\b(if|else|when|while|give)\\b" },
+        { "name": "keyword.other.lucode", "match": "(?i)\\b(print|why|rule|repeat|to)\\b" }
+      ]
+    },
+    "assignment": {
+      "match": "^\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(?==(?!=))",
+      "captures": { "1": { "name": "variable.other.assignment.lucode" } }
+    },
+    "expression": {
+      "patterns": [
+        { "include": "#comment" },
+        { "include": "#string" },
+        { "include": "#number" },
+        { "name": "constant.language.boolean.lucode", "match": "(?i)\\b(true|false)\\b" },
+        { "name": "keyword.operator.word.lucode", "match": "(?i)\\b(and|or|not|is)\\b" },
+        { "name": "keyword.operator.comparison.lucode", "match": "<=|>=|!=|<|>|=" },
+        { "name": "keyword.operator.arithmetic.lucode", "match": "[-+*/%]" },
+        { "include": "#statement-keyword" }
+      ]
+    },
+    "string": {
+      "name": "string.quoted.double.lucode",
+      "begin": "\"",
+      "end": "\"|$",
+      "patterns": [
+        { "name": "constant.character.escape.lucode", "match": "\\\\[nt\"\\\\]" }
+      ]
+    },
+    "number": {
+      "name": "constant.numeric.lucode",
+      "match": "\\b\\d+(?:\\.\\d+)?\\b"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+x = 2
+to double n
+    give n * 2
+
+print double x
+print total
+if x = 2
+    print "two"
+
+exit
