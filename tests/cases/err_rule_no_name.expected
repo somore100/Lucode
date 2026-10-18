@@ -1,0 +1,1 @@
+test.luc, Line 1: 'rule' needs a name, like: rule can_enter = has_key and is_owner

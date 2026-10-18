@@ -1,0 +1,33 @@
+# Comparison and logic — several ways to say the same thing
+money = 100
+
+# "is equal": = and is mean the same
+if money = 100
+    print "money = 100"
+if money is 100
+    print "money is 100"
+
+# "is not equal": != , is not , and not ... = all mean the same
+if money != 50
+    print "money != 50"
+if money is not 50
+    print "money is not 50"
+if not money = 50
+    print "not money = 50"
+
+# Storing a comparison
+rich = money > 1000
+print "rich: " + rich
+
+# Combining conditions
+if money > 10 and not rich
+    print "comfortable"
+
+# else if
+score = 72
+if score >= 90
+    print "A"
+else if score >= 70
+    print "B"
+else
+    print "C"

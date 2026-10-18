@@ -1,0 +1,29 @@
+# Rules stay live: they're recalculated every time they're used.
+has_key = false
+is_owner = true
+
+rule can_enter = has_key and is_owner
+
+print "Before the key: " + can_enter
+
+has_key = true
+print "After the key: " + can_enter
+
+if can_enter
+    print "Access granted"
+else
+    print "Access denied"
+
+# Rules can build on other rules
+money = 1500
+price = 1200
+discount = 0
+
+rule final_price = price - discount
+rule can_buy = money >= final_price
+
+price = 1800
+print "Price 1800, can buy: " + can_buy
+
+discount = 400
+print "With discount " + discount + ", final price " + final_price + ", can buy: " + can_buy

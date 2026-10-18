@@ -1,0 +1,5 @@
+a = 1
+rule double = a * 2
+print double
+a = 5
+print double

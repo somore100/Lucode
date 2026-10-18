@@ -1,0 +1,3 @@
+x = 1
+rule double = x * 2
+print doubel

@@ -1,0 +1,1 @@
+test.luc, Line 1: Lucode uses a single '=' for comparison. Write 'a = b' instead of 'a == b'.

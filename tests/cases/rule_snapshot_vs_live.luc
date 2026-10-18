@@ -1,0 +1,6 @@
+x = 1
+snap = x + 1
+rule live = x + 1
+x = 10
+print snap
+print live

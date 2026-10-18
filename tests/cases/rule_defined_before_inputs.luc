@@ -1,0 +1,4 @@
+rule ok = ready and not broken
+ready = true
+broken = false
+print ok

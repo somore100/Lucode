@@ -1,0 +1,5 @@
+# This program has a typo on purpose, to show Lucode's error messages
+money = 1000
+price = 300
+
+prnt money - price

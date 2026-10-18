@@ -1,0 +1,1 @@
+test.luc, Line 3: 'y' is a rule (line 2), so it can't be set directly. Change the values it depends on instead.

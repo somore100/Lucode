@@ -1,0 +1,11 @@
+# A tiny shop: variables, math and conditions
+money = 1000
+price = 250 * 2
+
+if money > price
+    print "You can buy it"
+    money = money - price
+else
+    print "Not enough money"
+
+print "Money left: " + money

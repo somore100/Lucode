@@ -1,0 +1,7 @@
+p = 100
+d = 0
+rule final = p - d
+rule cheap = final < 80
+print cheap
+d = 30
+print cheap

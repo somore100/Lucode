@@ -1,0 +1,4 @@
+# comment
+x = 2 # trailing
+
+print x

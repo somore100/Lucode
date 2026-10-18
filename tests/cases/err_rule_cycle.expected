@@ -1,0 +1,1 @@
+test.luc, Line 2: Rule 'a' depends on itself: a -> b -> a.

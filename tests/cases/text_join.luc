@@ -1,0 +1,4 @@
+name = "Lu"
+print "Hi " + name + "!"
+print "n=" + 3.5
+print "line\tone"
