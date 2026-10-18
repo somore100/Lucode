@@ -1,0 +1,8 @@
+alarm = false
+when alarm
+    print "Siren on"
+    alarm = false
+when alarm
+    print "Message sent"
+alarm = true
+print "alarm is " + alarm

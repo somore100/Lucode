@@ -1,0 +1,4 @@
+lights = true
+when lights
+    print "Lights are on"
+print "after"

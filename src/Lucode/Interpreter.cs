@@ -13,7 +13,24 @@ public sealed class Interpreter
 
     // Rules currently being worked out, in order, so a rule that depends on itself is caught.
     private readonly List<string> _evaluating = new();
+
+    // 'when' blocks, in the order they were declared, and the ones currently running (innermost last).
+    private readonly List<Watcher> _watchers = new();
+    private readonly List<Watcher> _firing = new();
+    private const int MaxWhenDepth = 100;
+
     private readonly TextWriter _output;
+
+    private sealed class Watcher
+    {
+        public required WhenStmt When { get; init; }
+
+        /// <summary>The condition's value at the last check; false until it has been seen true.</summary>
+        public bool WasTrue { get; set; }
+
+        /// <summary>Set while the condition can't be worked out because a name has no value yet.</summary>
+        public MissingValueError? Waiting { get; set; }
+    }
 
     public Interpreter(TextWriter? output = null)
     {
@@ -24,6 +41,12 @@ public sealed class Interpreter
     {
         foreach (var statement in program)
             Execute(statement);
+
+        // A 'when' still waiting on a missing name at the end almost always means a typo.
+        foreach (var watcher in _watchers)
+            if (watcher.Waiting is { } missing)
+                throw new LucodeError(watcher.When.Line,
+                    $"This 'when' never ran: {missing.Message}");
     }
 
     // ----- Statements -----
@@ -38,6 +61,7 @@ public sealed class Interpreter
                         $"'{assign.Name}' is a rule (line {existingRule.Line}), so it can't be set directly. " +
                         "Change the values it depends on instead.");
                 _variables[assign.Name] = Evaluate(assign.Value);
+                CheckWatchers();
                 break;
 
             case RuleStmt rule:
@@ -67,8 +91,91 @@ public sealed class Interpreter
                         Execute(inner);
                 break;
 
+            case WhenStmt whenStmt:
+                var watcher = new Watcher { When = whenStmt };
+                _watchers.Add(watcher);
+                // Before it was declared it counted as false, so a condition that's already true fires now.
+                Check(watcher);
+                break;
+
             default:
                 throw new InvalidOperationException($"Unknown statement {statement.GetType().Name}");
+        }
+    }
+
+    // ----- 'when' -----
+
+    /// <summary>
+    /// Runs after every assignment. First every 'when' looks at the same moment, then the ones
+    /// that went from false to true run, in the order they were declared. Looking first means
+    /// one block changing a value can't hide that change from a 'when' declared after it.
+    /// </summary>
+    private void CheckWatchers()
+    {
+        var rising = new List<Watcher>();
+        foreach (var watcher in _watchers)
+        {
+            bool isTrue = Test(watcher);
+            if (isTrue && !watcher.WasTrue)
+                rising.Add(watcher);
+            watcher.WasTrue = isTrue; // updated before running, so a block doesn't re-fire itself
+        }
+
+        foreach (var watcher in rising)
+            Fire(watcher);
+    }
+
+    /// <summary>Checks a 'when' that was just declared; until now it counted as false.</summary>
+    private void Check(Watcher watcher)
+    {
+        watcher.WasTrue = Test(watcher);
+        if (watcher.WasTrue)
+            Fire(watcher);
+    }
+
+    private bool Test(Watcher watcher)
+    {
+        object value;
+        try
+        {
+            value = Evaluate(watcher.When.Condition);
+        }
+        catch (MissingValueError missing)
+        {
+            // A name isn't set yet: the condition simply isn't true yet.
+            watcher.Waiting = missing;
+            return false;
+        }
+
+        watcher.Waiting = null;
+        if (value is not bool flag)
+            throw new LucodeError(watcher.When.Line,
+                $"'when' needs a true/false condition, but got {TypeName(value)} {Describe(value)}.");
+        return flag;
+    }
+
+    private void Fire(Watcher watcher)
+    {
+        if (_firing.Count >= MaxWhenDepth)
+        {
+            int start = _firing.LastIndexOf(watcher);
+            string chain = start < 0
+                ? ""
+                : ": " + string.Join(" -> ",
+                    _firing.Skip(start).Append(watcher).Select(w => $"line {w.When.Line}"));
+            throw new LucodeError(watcher.When.Line,
+                $"'when' blocks keep setting each other off{chain}. Stopped after {MaxWhenDepth} in a row.");
+        }
+
+        _firing.Add(watcher);
+        try
+        {
+            foreach (var statement in watcher.When.Body)
+                Execute(statement);
+        }
+        finally
+        {
+            _firing.RemoveAt(_firing.Count - 1);
         }
     }
 
@@ -93,7 +200,7 @@ public sealed class Interpreter
             return EvaluateRule(rule, variable.Line);
 
         string hint = Suggest.Hint(variable.Name, _variables.Keys.Concat(_rules.Keys));
-        throw new LucodeError(variable.Line, $"'{variable.Name}' has no value yet.{hint}");
+        throw new MissingValueError(variable.Line, variable.Name, $"'{variable.Name}' has no value yet.{hint}");
     }
 
     private object EvaluateRule(RuleStmt rule, int usedOnLine)

@@ -5,7 +5,8 @@ namespace Lucode;
 ///
 /// Grammar (lowest to highest precedence):
 ///   program     := statement*
-///   statement   := if | print | rule | assignment
+///   statement   := if | when | print | rule | assignment
+///   when        := "when" expr NEWLINE block           (top level only)
 ///   if          := "if" expr NEWLINE block ( "else" ( if | NEWLINE block ) )?
 ///   print       := "print" expr NEWLINE
 ///   rule        := "rule" NAME "=" expr NEWLINE
@@ -24,10 +25,11 @@ namespace Lucode;
 /// </summary>
 public sealed class Parser
 {
-    private static readonly string[] Commands = { "print", "if", "else", "rule" };
+    private static readonly string[] Commands = { "print", "if", "else", "rule", "when" };
 
     private readonly List<Token> _tokens;
     private int _pos;
+    private int _blockDepth; // 0 = top level of the file
 
     public Parser(List<Token> tokens)
     {
@@ -56,12 +58,14 @@ public sealed class Parser
                 return PrintStatement();
             case TokenType.Rule:
                 return RuleStatement();
+            case TokenType.When:
+                return WhenStatement();
             case TokenType.Identifier:
                 return Assignment();
             case TokenType.Else:
                 throw Error(token, "'else' must come right after an 'if' block.");
             case TokenType.Indent:
-                throw Error(token, "This line is indented, but there's no 'if' above it to belong to.");
+                throw Error(token, "This line is indented, but there's no 'if' or 'when' above it to belong to.");
             default:
                 throw Error(token, $"A line can't start with {token.Describe()}.");
         }
@@ -90,6 +94,24 @@ public sealed class Parser
         }
 
         return new IfStmt(condition, thenBlock, elseBlock, ifToken.Line);
+    }
+
+    private Stmt WhenStatement()
+    {
+        var whenToken = Advance();
+        if (_blockDepth > 0)
+            throw Error(whenToken, "'when' must be at the top level of the file, not inside another block.");
+        if (Check(TokenType.Newline))
+            throw Error(whenToken, "'when' needs a condition, like: when can_enter");
+
+        var condition = Expression();
+        EndOfLine("the 'when' condition");
+        var body = Block("when");
+
+        if (Check(TokenType.Else))
+            throw Error(Peek(), "'when' can't have an 'else'. Write a second 'when' with the opposite condition.");
+
+        return new WhenStmt(condition, body, whenToken.Line);
     }
 
     private Stmt PrintStatement()
@@ -145,8 +167,10 @@ public sealed class Parser
             throw Error(Peek(), $"Expected an indented block after '{owner}'.");
 
         var statements = new List<Stmt>();
+        _blockDepth++;
         while (!Check(TokenType.Dedent) && !Check(TokenType.Eof))
             statements.Add(Statement());
+        _blockDepth--;
 
         Match(TokenType.Dedent);
         return statements;

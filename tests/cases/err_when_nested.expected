@@ -1,0 +1,1 @@
+test.luc, Line 3: 'when' must be at the top level of the file, not inside another block.

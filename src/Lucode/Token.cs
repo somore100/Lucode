@@ -12,6 +12,7 @@ public enum TokenType
     Else,
     Print,
     Rule,
+    When,
     And,
     Or,
     Not,

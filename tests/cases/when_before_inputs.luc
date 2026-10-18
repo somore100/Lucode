@@ -1,0 +1,4 @@
+when temp > 30
+    print "Too hot: " + temp
+temp = 20
+temp = 35

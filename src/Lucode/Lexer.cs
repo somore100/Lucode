@@ -15,6 +15,7 @@ public sealed class Lexer
         ["else"] = TokenType.Else,
         ["print"] = TokenType.Print,
         ["rule"] = TokenType.Rule,
+        ["when"] = TokenType.When,
         ["and"] = TokenType.And,
         ["or"] = TokenType.Or,
         ["not"] = TokenType.Not,

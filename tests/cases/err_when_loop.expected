@@ -1,0 +1,1 @@
+test.luc, Line 4: 'when' blocks keep setting each other off: line 4 -> line 2 -> line 4. Stopped after 100 in a row.

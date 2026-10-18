@@ -1,0 +1,5 @@
+has_key = false
+when hsa_key
+    print "never"
+has_key = true
+print "end"

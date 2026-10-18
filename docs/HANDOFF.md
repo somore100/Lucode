@@ -1,80 +1,161 @@
-# AI Voice Studio — Project Handoff (v14) / Context for New Chat
+# Lucode — Handoff
 
-**What it is:** Offline TTS/STT/Translator + voice changer desktop app. Python + tkinter, Tokyo Night dark theme. By domore100 (GitHub: somore100).
-**Repo:** https://github.com/somore100/AI-Voice-Studio — "AI-Voice-Studio Source-Available License v1.0" (LICENSE.txt; you may not sell the software itself or a substantially derived fork; commercial *use* and integrations are fine). Local folder `~/Documents/Hot/programs/Local/ai_voice_studio/` on both machines.
-**Dev environment:** Fedora (main test machine; PipeWire + PulseAudio compat, venv Python 3.12, `python3.12 -m venv venv`; check for `(venv)` in the prompt first) and Pop!_OS (venv 3.12.3). Fedora: Acer Aspire, AMD Ryzen 12 threads, real mic = "Ryzen HD Audio Controller Digital Microphone".
-**Releases:** the user does NOT build locally. They push to GitHub; CI (`.github/workflows/build.yml`, PyInstaller, Python 3.12, torch 2.10.0, `transformers>=4.46,<4.57`, kokoro-onnx) builds AppImage / Windows / macOS from the ROOT specs (`ai_voice_studio*.spec`). A frozen test cycle takes 45–60 min. Frozen Linux builds keep models in `~/.local/share/AI Voice Studio/models/...`; source runs use `./models/`. Manual CI run: GitHub → Actions → "Build All Platforms" (left sidebar) → "Run workflow" → branch main. "Re-run failed jobs" re-runs the OLD commit — don't use it after a fix.
+Paste or attach this file at the start of a new chat to continue the project.
+Last updated: 2026-10-18, version 0.3.0-dev (`when` done, `why` next).
 
----
+## What Lucode is
 
-## Workflow (read this first)
-- Claude has no push access and cannot run torch/TTS/real GUI/real mic. **Delivery = ONE `.patch` file per change** (via `present_files`), built in the sandbox from a clone of the user's repo (`git diff`), verified with `git apply --check` on a **fresh clone of origin/main** + `py_compile`. The user downloads it to `~/Downloads` and runs ONE batched block: `cp ~/Downloads/x.patch . && git apply --check x.patch && git apply x.patch && rm x.patch && git add … && git commit -F- <<'EOF' … EOF && python main.py 2>&1 | tee run.log`. **Never push automatically**; the user pushes. Say up front that the last line runs until the app is closed.
-- **Patches are order-dependent.** If `git apply --check` says "patch does not apply", either an earlier patch is missing OR this one is already applied (check `git log --oneline -5` first). Lesson from this chat: three patches were delivered in a row, the user applied only the last; it applied "cleanly" because its hunks did not overlap, then broke later. **Build each patch against what is actually on GitHub (user pushes first), and give a `git log` check before the apply block.** If several are missing, bundle a single catch-up patch built from the user's real HEAD.
-- **At the start of a new chat:** `git clone https://github.com/somore100/AI-Voice-Studio` in the sandbox and check `git log --oneline -3` against the user's `git log --oneline -5` / `git status --short`. If origin is behind the user's HEAD, ask them to push (or upload main.py, audio_fx.py, curve_editor.py, engines/kokoro.py).
-- Pasted terminal logs get mangled/interleaved (stray `~~`, missing spaces, `x.patch.` with a trailing dot, heredocs flattened onto one line) — read carefully and give short, plain blocks. Browser downloads sometimes become `x (1).patch`; `ls -l ~/Downloads | grep -i patch` first. No literal placeholder paths. A trailing space after `\` breaks a chain.
-- Terminal output is the diagnostic tool. Separate what output shows from inference; correct earlier diagnoses plainly. Style: casual, direct, technically precise; tell the user plainly when something is environmental. User types fast/with typos and is terse; likes tappable choices (`ask_user_input_v0`) for picking among options. Dislikes many patch scripts / interaction loops. User preference: batch commands into one block; include git add/commit (and the push line only when asked).
-- **Sandbox tricks that worked:** `pip install librosa soundfile scipy pillow --break-system-packages`; `apt-get install -y python3-tk xdotool` (needs `apt-get update` first sometimes); `xvfb-run -a -s "-screen 0 1400x900x24"` (wrap with `timeout 120`; always catch exceptions in the Tk scenario and `root.destroy()` in `finally`, or it hangs the 300 s tool limit); `PIL.ImageGrab` screenshots then `view` the PNG; **real keyboard/mouse tests with `xdotool`**; stub heavy deps with `MagicMock` in `sys.modules` (set `sys.modules["torch"].Tensor = type("Tensor",(),{})`; `pyaudio.PyAudio().get_device_count` → 0; `speech_recognition.WaitTimeoutError` → real Exception class; `sys.path.insert(0, os.getcwd())` so `engines` imports), patch `tk.Tk.mainloop` to a no-op and `runpy.run_path("main.py", run_name="not_main")` to instantiate `AIApp`; Tk vars / `root.after` can't be used from worker threads in that harness (stub `_log_tts_job`, accept "main thread is not in main loop" noise). Pull single functions out with `ast` and `exec` them into a fake namespace for fast unit tests (done for the VC pipeline and `_vc_resolve`). Network from sandbox: github.com, raw.githubusercontent.com, release-assets, pypi reachable; huggingface.co / alphacephei.com / openai hosts are NOT. Sandbox CPU is slower than the user's. Files in the sandbox do NOT survive between chats — rebuild patches from the clone.
+A small, readable programming language focused on logic, math and **live
+relationships**. Guiding principle: *code should say what you mean*. Guiding
+rule: *keep it small and coherent; add a feature only when it solves a real problem.*
 
----
+- Interpreter written in **C# / .NET 8**, a tree-walking interpreter.
+- File extension: **`.luc`**.
+- Repo: `github.com/somore100/lucode` (author's GitHub: `somore100`).
+- Local path: `~/Documents/Hot/programs/Lucode` on Fedora.
+- Author also maintains **Blockliner** (`github.com/somore100/Blockliner`),
+  a Python/Tkinter visual block/node editor that generates code in 9 languages.
 
-## STATE AT END OF THIS CHAT
+## Decisions already made (don't re-litigate without reason)
 
-### On GitHub (origin/main = `a7a232a`, pushed by the user)
-`a7a232a` Voice changer language + faster pipeline + searchable dropdowns · `f531532` Typeable slider values, one preview at a time, saved settings · `51e151d` Curve editor timeline · `9230db2` Kokoro engine · `a1e144f` sliders/curves either-or + volume. **CI:** the first Kokoro build (on `51e151d`) was GREEN on all jobs. CI result for `a7a232a` not reported yet.
+| Topic | Decision |
+|---|---|
+| Name | **Lucode**. Checked: no existing language or notable project with that name. |
+| Blocks | **Indentation**, no colons, no braces, no `end`. |
+| Assignment | `name = value` at the start of a line. |
+| Comparison | **Single `=`** inside expressions (`if money = 100`). `==` gives a friendly error. |
+| Equality aliases | `=` and `is` mean equal; `!=`, `is not`, and `not a = b` mean not equal. One symbol form plus one word form per operator, no more. |
+| Rejected aliases | `=!` (reads as `= !x`), `>>` for "is" (looks like bit shift). |
+| Output | `print` (familiar). Not `show`. |
+| Logic | `and`, `or`, `not`. `not` binds looser than comparisons. `nor` is still undecided. |
+| Keywords | Case-insensitive (`NOT`, `If` work). Variable names are case-sensitive. |
+| Text joining | `+` with text on either side joins into text (`"Total: " + 5`). |
+| Numbers | All numbers are `double`; printed with 15 significant digits so `0.1 + 0.2` prints `0.3`. |
+| Comparison chaining | Not allowed (`1 < 2 < 3` is an error suggesting `and`). |
+| Different types | Never equal (`5 = "5"` is false); arithmetic on mismatched types is an error. |
+| `fact` keyword | **Dropped.** Plain variables already express facts. |
+| `do` keyword | **Dropped.** Indentation marks the body. |
+| `rule` keyword | **Kept**, as **opt-in live recalculation** (see below). |
+| Live by default? | **No.** Ordinary variables are snapshots; otherwise `count = count + 1` would be circular. |
+| `when` firing | Only on a false → true change (edge-triggered). |
+| `when` checking | After every assignment; all `when`s observe the same moment, then rising ones fire in declaration order. |
+| `when` already true | Fires immediately when declared ("not yet declared" counts as false). |
+| `when` side effects | Allowed; cascades allowed; 100 nested firings in a row is an error showing the loop. |
+| `when` placement | Top level only; no `else`. |
+| Independence | Lucode is standalone (CLI, later VS Code). Blockliner is an add-on via a language pack, never a dependency. |
 
-### Delivered, NOT confirmed applied (ask the user, check `git log`)
-1. **`depth.patch`** (built on `a7a232a`; touches `main.py`, `audio_fx.py`) — Depth control, below.
-2. **`cleanup_readme.patch`** (built on `a7a232a`; touches README.md and deletes 4 files) — deletes `.github/workflows/ai_voice_studio*.spec` (3 stale copies; CI uses the root specs) and the root `build.yml` (not under `.github/workflows`, never ran, differs from the real one); new README (real feature list, run-from-source steps, correct license summary — the old README wrongly said Apache 2.0 terms apply and linked `LICENSE`/`THIRD-PARTY-NOTICES.md`, the real files are `LICENSE.txt`/`THIRD_PARTY_LICENSES.md`). Independent of `depth.patch`.
+## Rules (v0.2) — exact semantics
 
-### Built this chat (all user-confirmed working unless noted)
-- **Voice changer language:** panel row "Spoken language" (`vc_lang_var`): "Same as Speech-to-Text tab" (default) / "Auto-detect (Whisper only)" / all languages; `_vc_resolve` puts `wlang`, `vlang`, `lang_name` into `_vc_cfg`; auto + Vosk → error message. Root cause of the earlier garbage text: the VC used the STT tab's language.
-- **Faster pipeline** (`_vc_pipeline`, module-level, patched onto `AIApp`): capture thread (mic opened/calibrated once, `pause_threshold=0.55`, `non_speaking_duration=0.35`, `listen(timeout=1, phrase_time_limit=7)`) + worker thread (queue maxsize 3, drops oldest; "Processing… (n waiting)"), generation token `_vc_gen` so a restart can't leave two workers, echo guard when Playback is on (`_vc_speaking`, `_vc_speak_seq`, `_vc_speak_end`), Whisper `temperature=0.0, condition_on_previous_text=False, without_timestamps=True`, helper `_vc_synth(cfg, text, out)`, log lines `[AVS] VC heard/speak/timing: queued … | hear … | speak … | from end of your phrase to sound: …`. **The user has NOT yet sent any `[AVS] VC timing:` lines.**
-- **Searchable dropdowns:** `_searchable_combo` rewritten (editable combobox + own popup Toplevel/Listbox that never takes focus; starts-with matches first then contains; Up/Down/Enter/Esc/click; own `disp` StringVar so `var` only ever receives a real entry; global click-away/wheel hides popup). API: `cb.set_values(list)`, state `"normal"/"disabled"` (never `"readonly"`), `cb.set()/get()` act on `var`. Used for XTTS lang/preset, VCTK speakers, Kokoro voices, STT/captions/Translator/VC languages, VC voice, mic list. Short lists (engine, mode, format, Hear with, Speak with) stay plain readonly combos. xdotool-verified.
-- **Typeable values:** `_value_entry(parent, var, lo, hi, scale, fmt, unit)` next to Speed/Pitch/Volume (and VC Speed/Pitch): type 150 → 1.5×, Enter/click-away applies, Esc cancels, clamped to slider range, junk reverts. (VC Speed has no Reset button — harmless omission.)
-- **Preview lock:** `_preview_busy` + `_preview_gen`; extra Preview clicks while generating show "Still generating…" and do nothing; Stop during generation discards the audio. `_do_preview` wraps `_do_preview_inner` in try/finally.
-- **Saved settings:** JSON at `~/.config/AI Voice Studio/settings.json` (XDG / `%APPDATA%` / `~/Library/Application Support`), `_settings_path()`, `_SETTING_VARS`, `_settings_collect/save/schedule/load`; debounced 800 ms autosave on any var change + save on close; restores engines, voices (VCTK stored by real name), languages, sliders, curves + smooth, VC options, mic (if present). Every value validated against allowed lists/ranges; a bad file is ignored. Text box and save folder are not part of it (folder already persists via the old `_rewrite_config`, which rewrites main.py — fine from source, **does not work in frozen builds; worth replacing by the settings file**).
-- **Depth** (`depth.patch`): `audio_fx.formant_shift(y, sr, semitones)` — cepstral-envelope (liftering, `L = sr/450`) warped along frequency, original phase kept, so pitch/duration unchanged; RMS-matched; gain clipped ±26 dB. `apply_fx(..., depth=0.0)` (semitones of formant shift, + = formants up = lighter). UI slider −8…+8, **+ = deeper**; `_apply_tts_fx(path, speed_key, pitch_key, volume_key=None, depth_key=None)` passes `depth=-dp`. TTS tab: Preview/Save; VC panel: TTS-pipeline mode only (Live Pitch has no depth). Active in Curves mode (no depth curve yet). Settings keys `depth`, `vc_depth`. Sandbox check on a 130 Hz synthetic vowel: f0 stays 130 Hz, F1 697 → 521 Hz at +4, → 914 Hz at −4. **Not listened to with real speech; may sound slightly metallic/phasey at extremes** — ask the user for impressions.
+```
+rule can_enter = has_key and is_owner
+```
 
----
+- The expression is **stored, not evaluated**. It is evaluated each time the
+  name is read ("recalculate when read", pull-based).
+- Rules can reference rules and can be defined before their inputs exist.
+- Errors: assigning to a rule name; making a rule with an existing variable's
+  name; defining the same rule twice (reserved for a future "either rule works"
+  meaning); cycles (`Rule 'a' depends on itself: a -> b -> a.`, reported on the
+  line where the loop closes).
 
-## FEATURE PLAN — user's priority order
+## `when` (v0.3) — exact semantics
 
-**Immediate**
-1. Confirm `depth.patch` and `cleanup_readme.patch` applied; user pushes; get the Actions result for the new commit (first red error line per job). Ask for depth listening impressions (try ±4 on male and female VCTK/Kokoro voices).
-2. **Voice changer speed** — still waiting for `[AVS] VC timing:` lines. If "hear" dominates (Whisper small on CPU, pads to 30 s): options are Vosk for "Hear with" (near-instant, less accurate, no model for sl/hr), faster-whisper (≈3–4× faster, new dependency + HF model download, can't be tested in the sandbox), a smaller Whisper (model manager only knows `small.pt`). Realistic floor ≈ 1–1.5 s after the end of a phrase (+0.55 s silence wait). Live Pitch is the instant mode.
+```
+when can_enter
+    print "Door opens"
+```
 
-**Next features**
-3. **API access for TTS** [REQ] — optional local HTTP server on 127.0.0.1 (stdlib `http.server` or a small framework): `/tts` (text, engine, voice, speed/pitch/volume/depth → WAV), `/voices`, `/engines`; start/stop toggle in the UI; optional token; must also work in the frozen builds.
-4. **Trait-slider voice finder** [REQ] — pick a voice by traits (depth is now available as one trait).
-5. **Select text and tag it** [REQ] — set speed/pitch on part of the text (needs word timings: Whisper word timestamps or per-sentence synthesis; the curve editor already has sentence blocks).
-6. **Depth as a curve** and save/load curve + slider presets [PROP]; moving playhead and word-level markers in the curve editor [PROP]; native XTTS `speed=` / VITS `length_scale` [PROP].
-7. **Virtual mic on Windows (VB-Cable) and macOS (BlackHole)** — Linux only today.
-8. Replace `_rewrite_config` (rewrites main.py) with the settings file so the output-folder setting works in frozen builds.
+- The condition is any true/false expression (a rule name, or e.g. `score >= 10`).
+- On declaration it's evaluated; if true, the block runs immediately.
+- After **every assignment**, two phases: (1) evaluate every `when` condition
+  and record its new value, collecting those that went false → true;
+  (2) run the collected blocks in declaration order. Recording first means a
+  block changing a value can't hide that change from a later `when`
+  (test `when_same_moment`).
+- Each block runs at most once per rise. A block changing its own inputs
+  doesn't re-fire it while the condition stays true.
+- A name with no value yet makes the condition "not true yet" (via
+  `MissingValueError`, a `LucodeError` subclass). If any `when` is still
+  waiting on a missing name at program end: error
+  `This 'when' never ran: 'hsa_key' has no value yet. Did you mean 'has_key'?`
+- Non-true/false condition: error. Nested firing depth > 100: error
+  `'when' blocks keep setting each other off: line 4 -> line 2 -> line 4.`
+- Parser errors: `when` inside a block; `else` after a `when` block; missing condition.
 
-**Test gaps (confirm in the real app)**
-- Curve editor timeline flow (Generate → zoom → snap → Preview with curves); Kokoro ja/zh quality (user: zh "alright for now") and speed (user: decent); AppImage fixes (ALSA_PLUGIN_DIR, `_MIC_NOTE`), host tools (`pactl/paplay/pacat` via `_ext_env()`), Windows/macOS builds (not retested since Kokoro); pt/tr Vosk install; model Uninstall buttons; live-pitch quality; bundled alsa-lib vs Fedora plugins.
+## Architecture
 
-**Cleanup (not critical)** — `cleanup_readme.patch` covers the dead CI/spec duplicates and the README. Still open: half-downloaded model folders can't be removed from the UI (Uninstall hides when not "installed"); first `audio_fx` call after launch is slow (librosa import); the **v10 unexplained abort** (`terminate called without an active exception` + SIGABRT, coredump under `/var/lib/systemd/coredump/…`; no backtrace yet: `coredumpctl gdb -1` → `bt`, `thread apply all bt`, or reproduce with `python -X faulthandler main.py 2>&1 | tee run.log`; `_tkinter.TclError: can't invoke "grab"` after window close is benign); mic clips at source volume 1.00 (`wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.5`).
+```
+src/Lucode/
+  Token.cs        TokenType enum + Token record (Type, Text, Value, Line)
+  Lexer.cs        Line-based; emits Indent/Dedent/Newline. Keywords dictionary.
+                  Tabs = 4 spaces. Comments with #. String escapes \n \t \" \\
+  Ast.cs          Records: LiteralExpr, VariableExpr, UnaryExpr, BinaryExpr,
+                  LogicalExpr; AssignStmt, RuleStmt, PrintStmt, IfStmt, WhenStmt
+  Parser.cs       Recursive descent. Grammar documented at the top of the file.
+                  Precedence: or < and < not < comparison < + - < * / % < unary -
+                  "else if" is parsed as an else block containing one IfStmt.
+                  An identifier at line start not followed by '=' is
+                  "Unknown command 'x'" with a did-you-mean hint.
+  Interpreter.cs  Values are C# double / string / bool.
+                  _variables dictionary, _rules dictionary, _evaluating list
+                  for cycle detection. _watchers (Watcher: WhenStmt, WasTrue,
+                  Waiting) and _firing (stack for the loop limit).
+  LucodeError.cs  LucodeError(line, message); MissingValueError subclass;
+                  Suggest.Hint() uses edit distance
+                  (with swapped-letter support) for "Did you mean".
+  Program.cs      `lucode file.luc`, --help, --version. Errors go to stderr as
+                  "file.luc, Line N: message", exit code 1.
+```
 
-**Bottom of the pile — Piper TTS** (user: "optional", last). `piper-tts` (OHF-Voice/piper1-gpl) is GPL-3.0-or-later; the old MIT rhasspy/piper repo was archived Oct 2025; voices have separate licenses → conflicts with the Source-Available license if bundled. Options: skip; optional user-installed download (not bundled); permissive fork `piper-plus` (MIT, unverified). Needs the user's decision.
+Tests: `tests/cases/*.luc` + `*.expected` (stdout+stderr combined; the file is
+copied to `test.luc` before running, so error messages say `test.luc`).
+Run with `./tests/run.sh` (set `SKIP_BUILD=1` to reuse an existing `build/`).
+**45 tests, all passing** at 0.3.0-dev.
 
-**Licensing:** eSpeak NG is GPL-3.0-or-later (via `espeakng-loader`; its own license not verified — flagged in THIRD_PARTY_LICENSES.md; the Windows installer already bundles eSpeak NG for Coqui). Kokoro model Apache-2.0, kokoro-onnx MIT, ONNX Runtime MIT.
+No NuGet packages are used. If NuGet is unreachable, restore offline:
+`dotnet restore src/Lucode --source <empty dir>`.
 
----
+## Next steps, in order
 
-## ARCHITECTURE NOTES
-- **Engines:** `engines/base.py` `EngineSpec` (key, display_name, approx_size, description, license, requires_tos, is_installed, download, list_voices, synthesize); `registry.py` `TTS_ENGINES` (vctk, xtts, kokoro); `paths.py`; `download_progress.py`. Models & Setup rows come from the registry. **Adding an engine is NOT one line:** main.py still has per-engine branches (dropdown, panels packed `before=self._speed_row`, preview, save, VC, uninstall); generic helpers: `_engine_key()`, `_tts_snapshot(sid)` → `(engine, voice, lang)`, `_tts_synth(snap, text, out)`, `_refresh_kokoro_voices()`, `_kokoro_voice_arg()`.
-- **Kokoro:** kokoro-onnx 0.6.1, int8 model + `voices-v1.0.bin` into `<models_base>/kokoro/`; 54 voices, language by the voice's first letter (a/b en, e es, f fr, h hi, i it, j ja, p pt, z zh; **no German voice**); 24 kHz WAV.
-- **Voice changer cfg** is resolved on the main thread (`_vc_resolve`, `_vc_resolve_live`) into `self._vc_cfg` (`stt`, `wlang`, `vlang`, `lang_name`, `playback`, `vmic`, `tts`, `voice`, `xtts_lang`); worker threads must not read Tk variables (`_fx_track` mirrors Speed/Pitch/Volume/Depth and VC speed/pitch/depth into `self._fx_vals`; curves live in `self._curves`, `"on"` mirrored from `tts_curves_on`). `_apply_tts_fx` uses curves only for the TTS tab (`speed_key == "speed"`).
-- **Virtual mic (Linux):** `pactl load-module module-null-sink sink_name=avs_voice` + `module-remap-source master=avs_voice.monitor source_name=avs_voice_mic` (description `AI_Voice_Studio_Mic`). Audio in via `paplay --device=avs_voice` (pipeline) or `pacat --playback` (live pitch). Unloaded on close (`_vmic_destroy`).
-- **`live_pitch.PitchShifter`:** numpy phase vocoder, N=2048, 4× overlap, ~46 ms latency.
-- **`audio_fx`:** constant path via librosa pitch_shift/time_stretch; curve path = variable-rate phase-vocoder stretch + variable-rate resample; curves over source time 0..1; returns True only if the file was modified; `formant_shift` last in the chain; helpers `load_wav_mono`, `write_wav`, `split_sentences`, `stitch`, `find_pauses`, `wave_peaks`, `curve_func`, `length_factor`.
-- **Curve editor:** `curve_editor.py` shared `_Ctx`, `_Timeline`, `_Panel` ×3 (speed/pitch/volume); hooks `get_ref/generate/play/preview`; stored curves normalized x (0..1); in Curves mode Preview/Save reuse the cached timed audio (`self._tl_ref`).
-- **Vosk models:** one folder per app language code under `VOSK_MODEL_DIR/<code>`; `sl` and `hr` have no small model (use Whisper). **Whisper:** `get_whisper_model()` loads `small.pt` from `WHISPER_MODEL_DIR`.
-- Still valid: DC-offset removal (`_DCBlockStream`), mic resolved by name at open, JACK host API skipped, SSL CA-bundle fix (certifi + `SSL_CERT_FILE`, never tested in an AppImage), `_open_mic` guards (don't force 16 kHz capture).
-- **Env note:** the user's venv has numpy 2.5.x, kokoro-onnx 0.6.1, onnxruntime 1.31.0; `pip check` was clean.
+1. ~~`when`~~ — **done** (see semantics above).
+2. **`why`** (v0.3, then release 0.3.0): `why can_enter` prints the value and which inputs decided
+   it, e.g. `can_enter is false, because is_owner is false`. Needs the evaluator
+   to record which sub-expressions determined a short-circuit result.
+3. **Loops** (v0.4): syntax not chosen yet. Candidates: `repeat 3 times`,
+   `while condition`, `for each item in list`.
+4. **Commands/functions** (v0.5): syntax not chosen yet.
+5. **Tooling:** REPL, VS Code TextMate grammar (syntax highlighting), later an LSP.
+6. **Blockliner language pack** (see below).
+7. **Later:** multiple rules with the same name = "any of them" (inference),
+   lists, text operations, input.
 
-### Corrections to earlier claims (do not repeat as fact)
-- The old README's license section (Apache 2.0 terms) was wrong; the license is the project's own Source-Available v1.0.
-- Earlier: "wrong mic" theory was wrong (default source/sink had been muted); pt/tr Vosk "invalid model" and `shutil` NameError were Claude's bugs; "Adding an engine is one line" was false; the first CI failures after the cleanup commit were caused by deleting `patch_tts_for_pyinstaller.py` (restored), not by Kokoro/volume work; Kokoro v1.0 has no German voice; sandbox speeds are not the user's.
-- A patch that applies cleanly is not proof its predecessors are installed (see Workflow).
+Still-open questions from the original design notes: how types work long-term,
+how editor warnings differ from run errors, whether `nor` is worth adding.
+
+## Blockliner integration notes
+
+- Language packs live in `languages/<lang>/` in the Blockliner repo:
+  `manifest.json` (`name`, `version`, `author`, `icon`, `comment_token`),
+  `concepts.json`, `node_types.json`, and `blocks/*.json`, one per block.
+- Block JSON: `concept_id`, `display_name`, `category`, `template` with
+  `[[param]]` slots and `[[body]]` for containers, `params` (name/type/default),
+  `is_container`, `empty_body`, and `match` (tree-sitter node kinds for
+  code-to-blocks sync).
+- Blocks a Lucode pack needs: assign_variable, print_output, if_statement,
+  elif_statement (`else if`), else_statement, comment, raw_code; later rule,
+  when, loops.
+- Limits: code-to-blocks sync uses tree-sitter (only Python has a grammar), so
+  Lucode would be blocks-to-code only at first. Running code inside the app is
+  in `ui_codegen.py` and only supports Python; Lucode would need a branch that
+  calls `lucode file.luc`.
+
+## Working preferences of the author
+
+- Batch terminal commands into one block where safe; avoid
+  "run this, tell me the result" loops.
+- End completed work with `git add` / `git commit` / `git push` commands; never
+  push automatically.
+- Delivery from a cloud session: changes come as a `git am`-able `.patch`
+  built on the repo's current `main`; the author applies, tests and pushes.
+- Author uses Fedora Linux, writes short casual messages, and likes being asked
+  before big design decisions are made for them.

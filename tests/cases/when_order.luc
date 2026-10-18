@@ -1,0 +1,6 @@
+x = 0
+when x > 0
+    print "first"
+when x > 0
+    print "second"
+x = 1

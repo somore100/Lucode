@@ -1,7 +1,7 @@
 namespace Lucode;
 
 /// <summary>An error in a Lucode program, always tied to a line number.</summary>
-public sealed class LucodeError : Exception
+public class LucodeError : Exception
 {
     public int Line { get; }
 
@@ -11,6 +11,17 @@ public sealed class LucodeError : Exception
     }
 
     public override string ToString() => $"Line {Line}: {Message}";
+}
+
+/// <summary>A name was read before it had a value. 'when' conditions treat this as "not true yet".</summary>
+public sealed class MissingValueError : LucodeError
+{
+    public string Name { get; }
+
+    public MissingValueError(int line, string name, string message) : base(line, message)
+    {
+        Name = name;
+    }
 }
 
 internal static class Suggest

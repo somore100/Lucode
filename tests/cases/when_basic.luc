@@ -1,0 +1,10 @@
+has_key = false
+is_owner = true
+rule can_enter = has_key and is_owner
+
+when can_enter
+    print "Door opens"
+
+print "waiting"
+has_key = true
+print "done"

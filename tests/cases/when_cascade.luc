@@ -1,0 +1,11 @@
+stage = 0
+when stage = 1
+    print "one"
+    stage = 2
+when stage = 2
+    print "two"
+    stage = 3
+when stage = 3
+    print "three"
+stage = 1
+print "stage is " + stage

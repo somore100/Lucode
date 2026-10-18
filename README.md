@@ -20,7 +20,7 @@ else
     print "Access denied"
 ```
 
-> **Status:** early development, **v0.2**. The language works and is tested, but
+> **Status:** early development, **v0.3 in progress**. The language works and is tested, but
 > syntax may still change before 1.0.
 
 ## Why Lucode?
@@ -105,6 +105,34 @@ discount = 400        # final_price and can_buy follow automatically
 (counters, totals, scores). Use a rule for things that are *defined by* other
 values (permissions, prices after discount, "is the machine ready").
 
+### Reactions: `when`
+
+`when` runs a block **the moment its condition becomes true**:
+
+```
+rule can_enter = has_key and is_owner
+
+when can_enter
+    print "Door opened"
+
+has_key = true        # prints "Door opened" right here
+```
+
+- It fires on a change from false to true, not again while it stays true.
+  Once the condition goes false, the next change to true fires it again.
+- Conditions are checked after every assignment. All `when`s look at the
+  same moment first, then the ones that became true run, in the order they
+  were written.
+- A `when` whose condition is already true when it's written runs immediately.
+- The condition can use names that don't have a value yet; it just isn't true
+  until they do. If a name *never* gets a value (usually a typo), that's
+  reported when the program ends.
+- A `when` block can change values and set off other `when`s. If they keep
+  setting each other off (100 in a row), Lucode stops with an error showing
+  the loop.
+- `when` goes at the top level of the file, and has no `else`
+  (write a second `when` with the opposite condition).
+
 ### Output
 
 ```
@@ -168,14 +196,10 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
       comparisons, `and`/`or`/`not`, `if`/`else if`/`else`, `print`, comments,
       line-numbered errors with suggestions
 - [x] **v0.2 Rules:** live formulas with `rule`, rule chains, loop detection
+- [x] **v0.3 Reactions:** `when` runs a block the moment a condition becomes true
 
 ### Next
 
-- [ ] **v0.3 Reactions:** `when` runs a block the moment a rule becomes true
-      ```
-      when can_enter
-          print "Door opened"
-      ```
 - [ ] **v0.3 Explanations:** `why` shows which values decided a rule
       (`can_enter is false, because is_owner is false`)
 - [ ] **v0.4 Repetition:** loops, such as `repeat 3 times` and `while ...`
@@ -209,7 +233,7 @@ src/Lucode/
   Lexer.cs         source text -> tokens (including indentation)
   Ast.cs           the program tree
   Parser.cs        tokens -> tree (the grammar is documented at the top)
-  Interpreter.cs   runs the tree, keeps variables and rules
+  Interpreter.cs   runs the tree, keeps variables, rules and when-blocks
   LucodeError.cs   errors with line numbers, "did you mean" suggestions
   Program.cs       command-line entry point
 examples/          sample .luc programs

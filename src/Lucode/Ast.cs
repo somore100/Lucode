@@ -27,3 +27,9 @@ public sealed record RuleStmt(string Name, Expr Value, int Line) : Stmt(Line);
 public sealed record PrintStmt(Expr Value, int Line) : Stmt(Line);
 
 public sealed record IfStmt(Expr Condition, List<Stmt> Then, List<Stmt>? Else, int Line) : Stmt(Line);
+
+/// <summary>
+/// "when condition" + block: the block runs each time the condition goes from false (or not yet
+/// known) to true. Conditions are re-checked after every assignment.
+/// </summary>
+public sealed record WhenStmt(Expr Condition, List<Stmt> Body, int Line) : Stmt(Line);

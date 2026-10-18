@@ -1,0 +1,31 @@
+# 'when' runs a block the moment its condition becomes true.
+has_key = false
+is_owner = true
+rule can_enter = has_key and is_owner
+
+when can_enter
+    print "Door opens"
+
+print "Looking for the key..."
+has_key = true          # can_enter goes false -> true, so the door opens
+has_key = true          # still true: nothing happens again
+
+# It fires on every new false -> true change.
+score = 0
+when score >= 10
+    print "Level up at " + score
+
+score = 5
+score = 12              # level up
+score = 3
+score = 20              # level up again
+
+# A 'when' block can change values, which can set off other 'when's.
+stage = 0
+when stage = 1
+    print "Stage one"
+    stage = 2
+when stage = 2
+    print "Stage two"
+
+stage = 1

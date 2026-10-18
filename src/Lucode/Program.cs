@@ -1,6 +1,6 @@
 using Lucode;
 
-const string Version = "0.2.0";
+const string Version = "0.3.0-dev";
 
 if (args.Length == 0 || args[0] is "-h" or "--help")
 {

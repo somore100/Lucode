@@ -1,0 +1,9 @@
+score = 0
+when score >= 10
+    print "Level up at " + score
+
+score = 5
+score = 12
+score = 15
+score = 3
+score = 20

@@ -1,0 +1,5 @@
+flag = false
+when flag
+    flag = false
+when not flag
+    flag = true

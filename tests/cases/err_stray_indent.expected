@@ -1,1 +1,1 @@
-test.luc, Line 2: This line is indented, but there's no 'if' above it to belong to.
+test.luc, Line 2: This line is indented, but there's no 'if' or 'when' above it to belong to.
