@@ -50,8 +50,8 @@ Lucode runs on Linux, Windows and macOS. You need the **.NET 8 SDK**:
 Then run a program:
 
 ```
-git clone https://github.com/somore100/lucode.git
-cd lucode
+git clone https://github.com/somore100/Lucode.git
+cd Lucode
 dotnet run --project src/Lucode -- examples/rules.luc
 ```
 
@@ -230,5 +230,5 @@ Each `tests/cases/name.luc` is run and its output compared with
 ## Contributing
 
 Ideas, bug reports and example programs are welcome; open an
-[issue](https://github.com/somore100/lucode/issues). Lucode is young, so
+[issue](https://github.com/somore100/Lucode/issues). Lucode is young, so
 syntax suggestions are especially useful now, before 1.0.
