@@ -1,0 +1,6 @@
+total = 0
+to double n
+    give n * 2
+when total > 5
+    print "big"
+total = double 4

@@ -1,0 +1,2 @@
+r is true, because b is true
+r is false, because a is false and b is false and c is false

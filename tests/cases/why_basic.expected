@@ -1,0 +1,3 @@
+can_enter is false, because is_owner is false
+has_key is true
+can_enter is true, because has_key is true and is_owner is true

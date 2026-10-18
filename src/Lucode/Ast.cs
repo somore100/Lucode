@@ -15,6 +15,9 @@ public sealed record BinaryExpr(Expr Left, Token Operator, Expr Right, int Line)
 /// <summary>"and" / "or" get their own node because they stop early (short-circuit).</summary>
 public sealed record LogicalExpr(Expr Left, Token Operator, Expr Right, int Line) : Expr(Line);
 
+/// <summary>A call to a command: "add 2 3". Gives back whatever the command gives.</summary>
+public sealed record CallExpr(string Name, List<Expr> Args, int Line) : Expr(Line);
+
 // ----- Statements: things that do something -----
 
 public abstract record Stmt(int Line);
@@ -33,3 +36,21 @@ public sealed record IfStmt(Expr Condition, List<Stmt> Then, List<Stmt>? Else, i
 /// known) to true. Conditions are re-checked after every assignment.
 /// </summary>
 public sealed record WhenStmt(Expr Condition, List<Stmt> Body, int Line) : Stmt(Line);
+
+/// <summary>"why name": prints the value of a variable or rule and which inputs decided it.</summary>
+public sealed record WhyStmt(VariableExpr Target, int Line) : Stmt(Line);
+
+/// <summary>"repeat count times" + block: runs the block that many times.</summary>
+public sealed record RepeatStmt(Expr Count, List<Stmt> Body, int Line) : Stmt(Line);
+
+/// <summary>"while condition" + block: runs the block again and again as long as the condition is true.</summary>
+public sealed record WhileStmt(Expr Condition, List<Stmt> Body, int Line) : Stmt(Line);
+
+/// <summary>"to name inputs" + block: defines a command that can be called by name.</summary>
+public sealed record CommandStmt(string Name, List<string> Inputs, List<Stmt> Body, int Line) : Stmt(Line);
+
+/// <summary>"give value": ends the command and hands the value back to the caller.</summary>
+public sealed record GiveStmt(Expr Value, int Line) : Stmt(Line);
+
+/// <summary>A call used as a line of its own, like: greet "Sam". Any value it gives is ignored.</summary>
+public sealed record ExprStmt(Expr Value, int Line) : Stmt(Line);

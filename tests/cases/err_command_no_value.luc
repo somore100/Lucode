@@ -1,0 +1,3 @@
+to hi
+    print "hi"
+x = hi

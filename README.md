@@ -133,6 +133,65 @@ has_key = true        # prints "Door opened" right here
 - `when` goes at the top level of the file, and has no `else`
   (write a second `when` with the opposite condition).
 
+### Explanations: `why`
+
+`why` shows a value and which inputs decided it:
+
+```
+has_key = true
+is_owner = false
+rule can_enter = has_key and is_owner
+
+why can_enter     # can_enter is false, because is_owner is false
+```
+
+- It looks through rules down to plain variables.
+- With `and`, only the side that was false is named; with `or`, only the side
+  that was true. If neither side could settle it, both are named.
+- `why` takes a single name. For a plain variable it just shows the value.
+
+### Loops: `repeat` and `while`
+
+```
+total = 0
+repeat 3 times
+    total = total + 2      # total ends at 6
+
+n = 1
+while n < 100
+    n = n * 2              # n ends at 128
+```
+
+- `repeat` needs a whole number of 0 or more.
+- `while` checks its condition before every run, so it may not run at all.
+- A loop that runs 1,000,000 times in a row stops with an error.
+- `when` conditions are still checked after every assignment, including
+  inside loops.
+
+### Commands: `to` and `give`
+
+```
+to add a b
+    give a + b
+
+to greet name
+    print "Hello, " + name
+
+print add 2 3          # 5
+print add (add 1 2) 4  # 7
+greet "Sam"            # Hello, Sam
+```
+
+- `to name inputs` defines a command; call it by writing its name followed by
+  one value per input. No parentheses or commas. Wrap a bigger expression in
+  parentheses: `add (x + 1) 2`.
+- `give` ends the command and hands back a value. A command that never gives
+  can only be used as a line of its own.
+- Define a command above the place it's used. A command may call itself.
+- Inside a command, inputs and new variables are local, and assigning never
+  changes the outside. Rules always look at the top-level values.
+- `to` goes at the top level of the file.
+
 ### Output
 
 ```
@@ -197,13 +256,13 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
       line-numbered errors with suggestions
 - [x] **v0.2 Rules:** live formulas with `rule`, rule chains, loop detection
 - [x] **v0.3 Reactions:** `when` runs a block the moment a condition becomes true
+- [x] **v0.3 Explanations:** `why` shows which values decided a rule
+      (`can_enter is false, because is_owner is false`)
 
 ### Next
 
-- [ ] **v0.3 Explanations:** `why` shows which values decided a rule
-      (`can_enter is false, because is_owner is false`)
-- [ ] **v0.4 Repetition:** loops, such as `repeat 3 times` and `while ...`
-- [ ] **v0.5 Commands:** user-defined commands (functions) with inputs
+- [x] **v0.4 Repetition:** `repeat 3 times` and `while ...` (`for each` waits for lists)
+- [x] **v0.5 Commands:** user-defined commands (functions) with inputs
 
 ### Tooling
 

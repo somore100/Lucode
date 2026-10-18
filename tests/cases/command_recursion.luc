@@ -1,0 +1,5 @@
+to fact n
+    if n <= 1
+        give 1
+    give n * fact (n - 1)
+print fact 5

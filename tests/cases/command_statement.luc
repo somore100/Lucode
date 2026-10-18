@@ -1,0 +1,4 @@
+to greet name
+    print "Hello, " + name
+greet "Sam"
+greet "Lu"

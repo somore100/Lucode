@@ -1,0 +1,7 @@
+to first_over limit
+    n = 1
+    while true
+        if n * n > limit
+            give n
+        n = n + 1
+print first_over 50

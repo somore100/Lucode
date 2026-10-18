@@ -1,0 +1,6 @@
+x = 1
+to change
+    x = 99
+    print x
+change
+print x

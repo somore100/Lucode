@@ -1,0 +1,5 @@
+base = 10
+rule doubled = base * 2
+to show base
+    print doubled
+show 3

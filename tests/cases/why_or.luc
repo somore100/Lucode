@@ -1,0 +1,8 @@
+a = false
+b = true
+c = true
+rule r = a or b or c
+why r
+b = false
+c = false
+why r

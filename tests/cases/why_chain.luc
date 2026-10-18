@@ -1,0 +1,6 @@
+score = 5
+rule passing = score >= 10
+rule can_enter = passing and not banned
+banned = false
+why passing
+why can_enter

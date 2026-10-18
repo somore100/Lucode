@@ -1,0 +1,6 @@
+count = 0
+when count = 3
+    print "three!"
+repeat 5 times
+    count = count + 1
+print count

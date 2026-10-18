@@ -18,6 +18,19 @@ public sealed class Interpreter
     private readonly List<Watcher> _watchers = new();
     private readonly List<Watcher> _firing = new();
     private const int MaxWhenDepth = 100;
+    private const int MaxLoopRuns = 1_000_000;
+
+    // Commands, and the inputs / variables of the one currently running (null at the top level).
+    private readonly Dictionary<string, CommandStmt> _commands = new();
+    private Dictionary<string, object>? _locals;
+    private int _callDepth;
+    private const int MaxCallDepth = 200;
+
+    /// <summary>Thrown by 'give' to leave a command early with its value.</summary>
+    private sealed class GiveSignal(object value) : Exception
+    {
+        public object Value { get; } = value;
+    }
 
     private readonly TextWriter _output;
 
@@ -60,8 +73,31 @@ public sealed class Interpreter
                     throw new LucodeError(assign.Line,
                         $"'{assign.Name}' is a rule (line {existingRule.Line}), so it can't be set directly. " +
                         "Change the values it depends on instead.");
-                _variables[assign.Name] = Evaluate(assign.Value);
+                var assigned = Evaluate(assign.Value);
+                if (_locals is not null)
+                {
+                    // Inside a command, assignments stay local; the outside world is untouched.
+                    _locals[assign.Name] = assigned;
+                    break;
+                }
+                _variables[assign.Name] = assigned;
                 CheckWatchers();
+                break;
+
+            case CommandStmt command:
+                if (_commands.ContainsKey(command.Name))
+                    throw new LucodeError(command.Line, $"Command '{command.Name}' is already defined.");
+                if (_variables.ContainsKey(command.Name) || _rules.ContainsKey(command.Name))
+                    throw new LucodeError(command.Line,
+                        $"'{command.Name}' is already a variable or rule, so it can't also be a command.");
+                _commands[command.Name] = command;
+                break;
+
+            case GiveStmt give:
+                throw new GiveSignal(Evaluate(give.Value));
+
+            case ExprStmt call:
+                Call((CallExpr)call.Value);
                 break;
 
             case RuleStmt rule:
@@ -77,6 +113,42 @@ public sealed class Interpreter
 
             case PrintStmt print:
                 _output.WriteLine(Format(Evaluate(print.Value)));
+                break;
+
+            case RepeatStmt repeat:
+                var times = Evaluate(repeat.Count);
+                if (times is not double count)
+                    throw new LucodeError(repeat.Line,
+                        $"'repeat' needs a number, but got {TypeName(times)} {Describe(times)}.");
+                if (count < 0 || count != Math.Floor(count))
+                    throw new LucodeError(repeat.Line,
+                        $"'repeat' needs a whole number of 0 or more, but got {Format(count)}.");
+                if (count > MaxLoopRuns)
+                    throw new LucodeError(repeat.Line,
+                        $"'repeat' can't run more than {MaxLoopRuns} times, but got {Format(count)}.");
+                for (double i = 0; i < count; i++)
+                    foreach (var inner in repeat.Body)
+                        Execute(inner);
+                break;
+
+            case WhileStmt loop:
+                for (int runs = 0; ; runs++)
+                {
+                    var test = Evaluate(loop.Condition);
+                    if (test is not bool keepGoing)
+                        throw new LucodeError(loop.Line,
+                            $"'while' needs a true/false condition, but got {TypeName(test)} {Describe(test)}.");
+                    if (!keepGoing) break;
+                    if (runs >= MaxLoopRuns)
+                        throw new LucodeError(loop.Line,
+                            $"'while' ran {MaxLoopRuns} times in a row without stopping. Is the condition ever false?");
+                    foreach (var inner in loop.Body)
+                        Execute(inner);
+                }
+                break;
+
+            case WhyStmt why:
+                _output.WriteLine(Explain(why.Target));
                 break;
 
             case IfStmt ifStmt:
@@ -102,6 +174,69 @@ public sealed class Interpreter
                 throw new InvalidOperationException($"Unknown statement {statement.GetType().Name}");
         }
     }
+
+    // ----- 'why' -----
+
+    /// <summary>"name is value", plus ", because ..." naming the inputs that decided a rule.</summary>
+    private string Explain(VariableExpr target)
+    {
+        var value = Evaluate(target); // also reports unknown names and rule loops
+        string text = $"{target.Name} is {Show(value)}";
+        if (_variables.ContainsKey(target.Name) || !_rules.TryGetValue(target.Name, out var rule))
+            return text;
+
+        var deciders = new List<(string Name, object Value)>();
+        Collect(rule.Value, deciders);
+        return deciders.Count == 0
+            ? text
+            : $"{text}, because {string.Join(" and ", deciders.Select(d => $"{d.Name} is {Show(d.Value)}"))}";
+    }
+
+    /// <summary>
+    /// Gathers the plain variables that decided an expression's value. Rules are looked through,
+    /// and 'and' / 'or' only count the side that settled the answer: with 'and', the first side
+    /// that was false; with 'or', the first side that was true; both sides when neither could.
+    /// </summary>
+    private void Collect(Expr expr, List<(string Name, object Value)> found)
+    {
+        switch (expr)
+        {
+            case VariableExpr variable:
+                if (_variables.TryGetValue(variable.Name, out var value))
+                {
+                    if (!found.Any(f => f.Name == variable.Name))
+                        found.Add((variable.Name, value));
+                }
+                else if (_rules.TryGetValue(variable.Name, out var rule))
+                    Collect(rule.Value, found);
+                break;
+
+            case UnaryExpr unary:
+                Collect(unary.Operand, found);
+                break;
+
+            case BinaryExpr binary:
+                Collect(binary.Left, found);
+                Collect(binary.Right, found);
+                break;
+
+            case LogicalExpr logical:
+                // Same order as EvaluateLogical, so we never look at a side that was skipped.
+                bool settles = logical.Operator.Type == TokenType.Or; // the value that ends it early
+                if ((bool)Evaluate(logical.Left) == settles)
+                    Collect(logical.Left, found);
+                else if ((bool)Evaluate(logical.Right) == settles)
+                    Collect(logical.Right, found);
+                else
+                {
+                    Collect(logical.Left, found);
+                    Collect(logical.Right, found);
+                }
+                break;
+        }
+    }
+
+    private static string Show(object value) => value is string s ? $"\"{s}\"" : Format(value);
 
     // ----- 'when' -----
 
@@ -188,11 +323,50 @@ public sealed class Interpreter
         UnaryExpr unary => EvaluateUnary(unary),
         LogicalExpr logical => EvaluateLogical(logical),
         BinaryExpr binary => EvaluateBinary(binary),
+        CallExpr call => Call(call) ?? throw new LucodeError(call.Line,
+            $"'{call.Name}' doesn't give a value, so it can't be used as one."),
         _ => throw new InvalidOperationException($"Unknown expression {expr.GetType().Name}"),
     };
 
+    /// <summary>Runs a command with its inputs. Returns what it gave, or null if it gave nothing.</summary>
+    private object? Call(CallExpr call)
+    {
+        if (!_commands.TryGetValue(call.Name, out var command))
+            throw new LucodeError(call.Line, $"Unknown command '{call.Name}'.");
+        if (_callDepth >= MaxCallDepth)
+            throw new LucodeError(call.Line,
+                $"'{call.Name}' called itself too deeply ({MaxCallDepth} calls in a row).");
+
+        // Inputs are worked out by the caller, before the command's own names exist.
+        var locals = new Dictionary<string, object>();
+        for (int i = 0; i < command.Inputs.Count; i++)
+            locals[command.Inputs[i]] = Evaluate(call.Args[i]);
+
+        var saved = _locals;
+        _locals = locals;
+        _callDepth++;
+        try
+        {
+            foreach (var statement in command.Body)
+                Execute(statement);
+            return null;
+        }
+        catch (GiveSignal given)
+        {
+            return given.Value;
+        }
+        finally
+        {
+            _locals = saved;
+            _callDepth--;
+        }
+    }
+
     private object LookUp(VariableExpr variable)
     {
+        if (_locals is not null && _locals.TryGetValue(variable.Name, out var local))
+            return local;
+
         if (_variables.TryGetValue(variable.Name, out var value))
             return value;
 
@@ -213,12 +387,15 @@ public sealed class Interpreter
         }
 
         _evaluating.Add(rule.Name);
+        var savedLocals = _locals;
+        _locals = null; // a rule always looks at the top-level values, never a command's own
         try
         {
             return Evaluate(rule.Value);
         }
         finally
         {
+            _locals = savedLocals;
             _evaluating.RemoveAt(_evaluating.Count - 1);
         }
     }

@@ -1,0 +1,2 @@
+repeat "a" times
+    print 1

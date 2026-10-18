@@ -1,0 +1,5 @@
+rows = 0
+repeat 2 times
+    repeat 3 times
+        rows = rows + 1
+print rows

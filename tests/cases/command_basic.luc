@@ -1,0 +1,6 @@
+to add a b
+    give a + b
+print add 2 3
+print add (add 1 2) 4
+x = add 10 5
+print x
