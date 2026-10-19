@@ -4,12 +4,12 @@ namespace Lucode;
 
 /// <summary>
 /// An interactive prompt. Variables, rules, 'when' blocks and commands stay around between
-/// lines. A line that opens a block ('if', 'when', 'repeat', 'while', 'to') keeps reading
+/// lines. A line that opens a block ('if', 'when', 'repeat', 'while', 'for', 'to') keeps reading
 /// lines until an empty one.
 /// </summary>
 public static class Repl
 {
-    private static readonly string[] BlockStarters = { "if", "when", "repeat", "while", "to" };
+    private static readonly string[] BlockStarters = { "if", "when", "repeat", "while", "to", "for" };
 
     public static void Run(string version)
     {

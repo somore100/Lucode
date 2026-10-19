@@ -21,6 +21,8 @@ public sealed class Lexer
         ["while"] = TokenType.While,
         ["to"] = TokenType.To,
         ["give"] = TokenType.Give,
+        ["for"] = TokenType.For,
+        ["list"] = TokenType.List,
         ["and"] = TokenType.And,
         ["or"] = TokenType.Or,
         ["not"] = TokenType.Not,
@@ -152,6 +154,7 @@ public sealed class Lexer
                 case '%': Add(TokenType.Percent, "%", line); break;
                 case '(': Add(TokenType.LeftParen, "(", line); break;
                 case ')': Add(TokenType.RightParen, ")", line); break;
+                case ',': Add(TokenType.Comma, ",", line); break;
                 case '=':
                     if (next == '=')
                         throw new LucodeError(line, "Lucode uses a single '=' for comparison. Write 'a = b' instead of 'a == b'.");

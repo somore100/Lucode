@@ -168,6 +168,33 @@ while n < 100
 - `when` conditions are still checked after every assignment, including
   inside loops.
 
+### Lists
+
+```
+scores = list 90, 75, 82
+print item 1 of scores          # 90 (positions start at 1)
+print count of scores           # 3
+add 60 to scores
+remove item 2 from scores
+print scores                    # list 90, 82, 60
+
+for each score in scores
+    print score
+
+if 82 in scores
+    print "found"
+```
+
+- `list` followed by comma-separated values makes a list; `list` alone is empty.
+  Items can be any value, including other lists.
+- `item N of`, `count of`, `for each` and `in` also work on text (one letter at a time).
+- Lists are values, like numbers: `b = a` copies the list, and `add` / `remove`
+  give the variable a new list, so `when` blocks notice the change.
+- Asking for a position that isn't there is an error (`Positions start at 1`).
+- `item`, `count`, `of`, `each`, `in` and `from` are only special in these
+  phrases, so they still work as names (`for each item in items`).
+- `for` and `list` are keywords.
+
 ### Commands: `to` and `give`
 
 ```
@@ -196,7 +223,7 @@ greet "Sam"            # Hello, Sam
 
 Run `lucode` with no file to get an interactive prompt. Everything you define
 stays around for the next line. A line that opens a block (`if`, `when`,
-`repeat`, `while`, `to`) keeps reading lines until you enter an empty one.
+`repeat`, `while`, `for`, `to`) keeps reading lines until you enter an empty one.
 Errors are shown and the session carries on. Type `exit` to leave.
 
 ```
@@ -276,6 +303,7 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 
 - [x] **v0.4 Repetition:** `repeat 3 times` and `while ...` (`for each` waits for lists)
 - [x] **v0.5 Commands:** user-defined commands (functions) with inputs
+- [x] **v0.6 Lists:** `list 1, 2, 3`, `item N of`, `count of`, `add` / `remove`, `for each`, `in`
 
 ### Tooling
 
@@ -294,7 +322,7 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 
 - [ ] Several rules with the same name meaning "any of these is enough"
       (rule-based reasoning)
-- [ ] Text and list operations
+- [ ] Text operations (split, join, upper/lower) and sorting lists
 - [ ] Reading input from the user and from files
 
 ## Project layout

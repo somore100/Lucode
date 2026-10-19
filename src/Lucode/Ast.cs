@@ -18,6 +18,15 @@ public sealed record LogicalExpr(Expr Left, Token Operator, Expr Right, int Line
 /// <summary>A call to a command: "add 2 3". Gives back whatever the command gives.</summary>
 public sealed record CallExpr(string Name, List<Expr> Args, int Line) : Expr(Line);
 
+/// <summary>"list 1, 2, 3" (or just "list" for an empty one).</summary>
+public sealed record ListExpr(List<Expr> Items, int Line) : Expr(Line);
+
+/// <summary>"item 2 of scores": one item of a list (or one letter of a text), counting from 1.</summary>
+public sealed record ItemExpr(Expr Position, Expr Source, int Line) : Expr(Line);
+
+/// <summary>"count of scores": how many items a list has (or letters a text has).</summary>
+public sealed record CountExpr(Expr Source, int Line) : Expr(Line);
+
 // ----- Statements: things that do something -----
 
 public abstract record Stmt(int Line);
@@ -54,3 +63,12 @@ public sealed record GiveStmt(Expr Value, int Line) : Stmt(Line);
 
 /// <summary>A call used as a line of its own, like: greet "Sam". Any value it gives is ignored.</summary>
 public sealed record ExprStmt(Expr Value, int Line) : Stmt(Line);
+
+/// <summary>"for each name in things" + block: runs the block once per item (or letter), with name set to it.</summary>
+public sealed record ForEachStmt(string Name, Expr Source, List<Stmt> Body, int Line) : Stmt(Line);
+
+/// <summary>"add value to scores": the list gets the value on the end.</summary>
+public sealed record AddStmt(Expr Value, string Target, int Line) : Stmt(Line);
+
+/// <summary>"remove item 2 from scores": the list loses that item.</summary>
+public sealed record RemoveStmt(Expr Position, string Target, int Line) : Stmt(Line);

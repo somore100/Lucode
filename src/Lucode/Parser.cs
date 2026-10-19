@@ -12,6 +12,8 @@ namespace Lucode;
 ///   call        := NAME primary*                       (one value per input of the command)
 ///   repeat      := "repeat" expr "times" NEWLINE block
 ///   while       := "while" expr NEWLINE block
+///   for         := "for" "each" NAME "in" expr NEWLINE block
+///   change      := "add" expr "to" NAME | "remove" "item" sum "from" NAME
 ///   why         := "why" NAME NEWLINE
 ///   if          := "if" expr NEWLINE block ( "else" ( if | NEWLINE block ) )?
 ///   print       := "print" expr NEWLINE
@@ -23,15 +25,16 @@ namespace Lucode;
 ///   or          := and ( "or" and )*
 ///   and         := not ( "and" not )*
 ///   not         := "not" not | comparison
-///   comparison  := sum ( ( "=" | "is" | "is not" | "!=" | "<" | "<=" | ">" | ">=" ) sum )?
+///   comparison  := sum ( ( "in" | "=" | "is" | "is not" | "!=" | "<" | "<=" | ">" | ">=" ) sum )?
 ///   sum         := product ( ( "+" | "-" ) product )*
 ///   product     := unary ( ( "*" | "/" | "%" ) unary )*
 ///   unary       := "-" unary | primary
 ///   primary     := NUMBER | TEXT | "true" | "false" | NAME | "(" expr ")"
+///               | "list" ( expr ( "," expr )* )? | "item" sum "of" primary | "count" "of" primary
 /// </summary>
 public sealed class Parser
 {
-    private static readonly string[] Commands = { "print", "if", "else", "rule", "when", "why", "repeat", "while", "to", "give" };
+    private static readonly string[] Commands = { "print", "if", "else", "rule", "when", "why", "repeat", "while", "to", "give", "for", "add", "remove" };
 
     private readonly List<Token> _tokens;
     private int _pos;
@@ -82,6 +85,8 @@ public sealed class Parser
                 return WhileStatement();
             case TokenType.Why:
                 return WhyStatement();
+            case TokenType.For:
+                return ForEachStatement();
             case TokenType.Identifier:
                 return Assignment();
             case TokenType.Else:
@@ -207,6 +212,61 @@ public sealed class Parser
         return new WhileStmt(condition, body, whileToken.Line);
     }
 
+    private Stmt ForEachStatement()
+    {
+        var forToken = Advance();
+        if (!IsWord("each"))
+            throw Error(Peek(), "Expected 'each' after 'for', like: for each item in things");
+        Advance();
+        if (!Check(TokenType.Identifier))
+            throw Error(Peek(), "'for each' needs a name for each item, like: for each item in things");
+        var name = Advance();
+        if (!IsWord("in"))
+            throw Error(Peek(), $"Expected 'in' after 'for each {name.Text}', like: for each {name.Text} in things");
+        Advance();
+        if (Check(TokenType.Newline))
+            throw Error(forToken, "'for each' needs a list to go through, like: for each item in things");
+        var source = Expression();
+        EndOfLine("the 'for each' list");
+        var body = Block("for each");
+        return new ForEachStmt(name.Text, source, body, forToken.Line);
+    }
+
+    /// <summary>"add value to scores" / "remove item 2 from scores". Reads from the 'add' / 'remove' word.</summary>
+    private Stmt ListChange()
+    {
+        var word = Advance();
+        if (word.Text.Equals("add", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Check(TokenType.Newline))
+                throw Error(word, "'add' needs a value and a list, like: add 5 to scores");
+            var value = Expression();
+            if (!Match(TokenType.To))
+                throw Error(Peek(), "Expected 'to' after the value, like: add 5 to scores");
+            var target = ListName("add");
+            EndOfLine("the 'add' line");
+            return new AddStmt(value, target, word.Line);
+        }
+
+        if (!IsWord("item"))
+            throw Error(Peek(), "'remove' needs an item, like: remove item 2 from scores");
+        Advance();
+        var position = Sum();
+        if (!IsWord("from"))
+            throw Error(Peek(), "Expected 'from' after the position, like: remove item 2 from scores");
+        Advance();
+        var name = ListName("remove");
+        EndOfLine("the 'remove' line");
+        return new RemoveStmt(position, name, word.Line);
+    }
+
+    private string ListName(string after)
+    {
+        if (!Check(TokenType.Identifier))
+            throw Error(Peek(), $"'{after}' needs the name of a list at the end.");
+        return Advance().Text;
+    }
+
     private Stmt WhyStatement()
     {
         var whyToken = Advance();
@@ -258,6 +318,13 @@ public sealed class Parser
             var call = Primary();
             EndOfLine($"the call to '{name.Text}'");
             return new ExprStmt(call, name.Line);
+        }
+
+        if (!Check(TokenType.Equal) && (name.Text.Equals("add", StringComparison.OrdinalIgnoreCase)
+                                        || name.Text.Equals("remove", StringComparison.OrdinalIgnoreCase)))
+        {
+            _pos--;
+            return ListChange();
         }
 
         if (!Match(TokenType.Equal))
@@ -344,6 +411,11 @@ public sealed class Parser
                 : isToken with { Type = TokenType.Equal };
             left = new BinaryExpr(left, op, Sum(), op.Line);
         }
+        else if (IsWord("in"))
+        {
+            var op = Advance() with { Type = TokenType.In };
+            left = new BinaryExpr(left, op, Sum(), op.Line);
+        }
         else if (CheckAny(TokenType.Equal, TokenType.NotEqual, TokenType.Less,
                           TokenType.LessEqual, TokenType.Greater, TokenType.GreaterEqual))
         {
@@ -352,7 +424,7 @@ public sealed class Parser
         }
 
         if (CheckAny(TokenType.Equal, TokenType.NotEqual, TokenType.Less, TokenType.LessEqual,
-                     TokenType.Greater, TokenType.GreaterEqual, TokenType.Is))
+                     TokenType.Greater, TokenType.GreaterEqual, TokenType.Is) || IsWord("in"))
         {
             throw Error(Peek(), "Comparisons can't be chained. Use 'and', like: a < b and b < c");
         }
@@ -408,8 +480,33 @@ public sealed class Parser
             case TokenType.False:
                 Advance();
                 return new LiteralExpr(false, token.Line);
+            case TokenType.List:
+                Advance();
+                var items = new List<Expr>();
+                if (!CheckAny(TokenType.Newline, TokenType.RightParen, TokenType.Eof))
+                {
+                    do items.Add(Expression());
+                    while (Match(TokenType.Comma));
+                }
+                return new ListExpr(items, token.Line);
             case TokenType.Identifier:
                 Advance();
+                if (!_commands.ContainsKey(token.Text) && token.Text.Equals("count", StringComparison.OrdinalIgnoreCase)
+                    && IsWord("of"))
+                {
+                    Advance();
+                    return new CountExpr(Primary(), token.Line);
+                }
+                if (!_commands.ContainsKey(token.Text) && token.Text.Equals("item", StringComparison.OrdinalIgnoreCase)
+                    && CheckAny(TokenType.Number, TokenType.LeftParen, TokenType.Identifier)
+                    && !IsWord("of") && !IsWord("in"))
+                {
+                    var position = Sum();
+                    if (!IsWord("of"))
+                        throw Error(Peek(), "Expected 'of' after the position, like: item 2 of scores");
+                    Advance();
+                    return new ItemExpr(position, Primary(), token.Line);
+                }
                 if (_commands.TryGetValue(token.Text, out var arity))
                 {
                     var args = new List<Expr>();
@@ -437,6 +534,10 @@ public sealed class Parser
     }
 
     // ----- Helpers -----
+
+    /// <summary>True when the next token is this plain word (words like 'each' or 'of' are only special in context).</summary>
+    private bool IsWord(string word) =>
+        Check(TokenType.Identifier) && Peek().Text.Equals(word, StringComparison.OrdinalIgnoreCase);
 
     private Token Peek() => _tokens[_pos];
 

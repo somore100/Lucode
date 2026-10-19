@@ -72,19 +72,39 @@ public sealed class Interpreter
         switch (statement)
         {
             case AssignStmt assign:
-                if (_rules.TryGetValue(assign.Name, out var existingRule))
-                    throw new LucodeError(assign.Line,
-                        $"'{assign.Name}' is a rule (line {existingRule.Line}), so it can't be set directly. " +
-                        "Change the values it depends on instead.");
-                var assigned = Evaluate(assign.Value);
-                if (_locals is not null)
+                Assign(assign.Name, Evaluate(assign.Value), assign.Line);
+                break;
+
+            case ForEachStmt each:
+                var source = Evaluate(each.Source);
+                // Going through a copy, so changing the list inside the loop doesn't change the loop.
+                IReadOnlyList<object> things = source switch
                 {
-                    // Inside a command, assignments stay local; the outside world is untouched.
-                    _locals[assign.Name] = assigned;
-                    break;
+                    List<object> list => list.ToArray(),
+                    string text => text.Select(c => (object)c.ToString()).ToArray(),
+                    _ => throw new LucodeError(each.Line,
+                        $"'for each' needs a list or text, but got {TypeName(source)} {Describe(source)}."),
+                };
+                foreach (var thing in things)
+                {
+                    Assign(each.Name, thing, each.Line);
+                    foreach (var inner in each.Body)
+                        Execute(inner);
                 }
-                _variables[assign.Name] = assigned;
-                CheckWatchers();
+                break;
+
+            case AddStmt add:
+                var addTo = CurrentList(add.Target, add.Line, "add to");
+                var added = new List<object>(addTo) { Evaluate(add.Value) };
+                Assign(add.Target, added, add.Line);
+                break;
+
+            case RemoveStmt remove:
+                var removeFrom = CurrentList(remove.Target, remove.Line, "remove from");
+                int removeAt = Position(Evaluate(remove.Position), removeFrom.Count, "list", remove.Line);
+                var removed = new List<object>(removeFrom);
+                removed.RemoveAt(removeAt);
+                Assign(remove.Target, removed, remove.Line);
                 break;
 
             case CommandStmt command:
@@ -178,6 +198,45 @@ public sealed class Interpreter
         }
     }
 
+    /// <summary>Sets a variable. Inside a command it stays local; at the top level 'when' blocks are checked.</summary>
+    private void Assign(string name, object value, int line)
+    {
+        if (_rules.TryGetValue(name, out var existingRule))
+            throw new LucodeError(line,
+                $"'{name}' is a rule (line {existingRule.Line}), so it can't be set directly. " +
+                "Change the values it depends on instead.");
+        if (_locals is not null)
+        {
+            // Inside a command, assignments stay local; the outside world is untouched.
+            _locals[name] = value;
+            return;
+        }
+        _variables[name] = value;
+        CheckWatchers();
+    }
+
+    private List<object> CurrentList(string name, int line, string verb)
+    {
+        var value = LookUp(new VariableExpr(name, line));
+        return value as List<object>
+            ?? throw new LucodeError(line, $"Can't {verb} '{name}': it's {TypeName(value)} {Describe(value)}, not a list.");
+    }
+
+    /// <summary>Turns a position (counting from 1) into a 0-based index, or explains what's wrong with it.</summary>
+    private static int Position(object position, int count, string what, int line)
+    {
+        if (position is not double d || d != Math.Floor(d))
+            throw new LucodeError(line, $"A position must be a whole number, but got {TypeName(position)} {Describe(position)}.");
+        if (d < 1)
+            throw new LucodeError(line, $"Positions start at 1, so there is no item {Format(d)}.");
+        string unit = what == "list" ? "item" : "letter";
+        if (d > count)
+            throw new LucodeError(line, count == 0
+                ? $"The {what} is empty, so there is no {unit} {Format(d)}."
+                : $"The {what} only has {count} {unit}{(count == 1 ? "" : "s")}, so there is no {unit} {Format(d)}.");
+        return (int)d - 1;
+    }
+
     // ----- 'why' -----
 
     /// <summary>"name is value", plus ", because ..." naming the inputs that decided a rule.</summary>
@@ -221,6 +280,20 @@ public sealed class Interpreter
             case BinaryExpr binary:
                 Collect(binary.Left, found);
                 Collect(binary.Right, found);
+                break;
+
+            case ListExpr list:
+                foreach (var item in list.Items)
+                    Collect(item, found);
+                break;
+
+            case ItemExpr item:
+                Collect(item.Position, found);
+                Collect(item.Source, found);
+                break;
+
+            case CountExpr count:
+                Collect(count.Source, found);
                 break;
 
             case LogicalExpr logical:
@@ -326,6 +399,9 @@ public sealed class Interpreter
         UnaryExpr unary => EvaluateUnary(unary),
         LogicalExpr logical => EvaluateLogical(logical),
         BinaryExpr binary => EvaluateBinary(binary),
+        ListExpr list => list.Items.Select(Evaluate).ToList(),
+        ItemExpr item => EvaluateItem(item),
+        CountExpr count => EvaluateCount(count),
         CallExpr call => Call(call) ?? throw new LucodeError(call.Line,
             $"'{call.Name}' doesn't give a value, so it can't be used as one."),
         _ => throw new InvalidOperationException($"Unknown expression {expr.GetType().Name}"),
@@ -403,6 +479,32 @@ public sealed class Interpreter
         }
     }
 
+    private object EvaluateItem(ItemExpr item)
+    {
+        var source = Evaluate(item.Source);
+        var position = Evaluate(item.Position);
+        switch (source)
+        {
+            case List<object> list:
+                return list[Position(position, list.Count, "list", item.Line)];
+            case string text:
+                return text[Position(position, text.Length, "text", item.Line)].ToString();
+            default:
+                throw new LucodeError(item.Line, $"'item ... of' needs a list or text, but got {TypeName(source)} {Describe(source)}.");
+        }
+    }
+
+    private object EvaluateCount(CountExpr count)
+    {
+        var source = Evaluate(count.Source);
+        return source switch
+        {
+            List<object> list => (double)list.Count,
+            string text => (double)text.Length,
+            _ => throw new LucodeError(count.Line, $"'count of' needs a list or text, but got {TypeName(source)} {Describe(source)}."),
+        };
+    }
+
     private object EvaluateUnary(UnaryExpr unary)
     {
         var operand = Evaluate(unary.Operand);
@@ -445,6 +547,13 @@ public sealed class Interpreter
             case TokenType.NotEqual:
                 return !AreEqual(left, right);
 
+            case TokenType.In:
+                if (right is List<object> members) return members.Any(m => AreEqual(left, m));
+                if (right is string haystack && left is string needle) return haystack.Contains(needle, StringComparison.Ordinal);
+                throw new LucodeError(line, right is string
+                    ? $"Can only look for text inside text, but got {TypeName(left)} {Describe(left)}."
+                    : $"'in' needs a list or text on the right, but got {TypeName(right)} {Describe(right)}.");
+
             case TokenType.Plus:
                 if (left is double a && right is double b) return a + b;
                 // Adding text joins it together: "Total: " + 5 → "Total: 5"
@@ -476,6 +585,7 @@ public sealed class Interpreter
         (double a, double b) => a == b,
         (string a, string b) => a == b,
         (bool a, bool b) => a == b,
+        (List<object> a, List<object> b) => a.Count == b.Count && a.Zip(b).All(p => AreEqual(p.First, p.Second)),
         _ => false, // different kinds of values are never equal
     };
 
@@ -492,6 +602,7 @@ public sealed class Interpreter
         double => "a number",
         string => "text",
         bool => "true/false",
+        List<object> => "a list",
         _ => "an unknown value",
     };
 
@@ -505,6 +616,7 @@ public sealed class Interpreter
         double d => d.ToString("G15", CultureInfo.InvariantCulture),
         bool b => b ? "true" : "false",
         string s => s,
+        List<object> list => list.Count == 0 ? "list" : "list " + string.Join(", ", list.Select(Show)),
         _ => value.ToString() ?? "",
     };
 }

@@ -1,0 +1,11 @@
+names = list "Ann", "Bo"
+print "Bo" in names
+print "Cy" in names
+print not "Cy" in names
+print "ell" in "hello"
+if 3 in list 1, 2, 3
+    print "found"
+a = list 1, 2
+b = list 1, 2
+print a = b
+print a = list 2, 1

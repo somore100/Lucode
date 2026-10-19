@@ -1,0 +1,6 @@
+scores = list 1
+when count of scores > 2
+    print "three or more"
+add 2 to scores
+add 3 to scores
+add 4 to scores

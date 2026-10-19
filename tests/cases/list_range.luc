@@ -1,0 +1,2 @@
+scores = list 1, 2
+print item 5 of scores

@@ -1,7 +1,7 @@
 # Lucode — Handoff
 
 Paste or attach this file at the start of a new chat to continue the project.
-Last updated: 2026-10-18, version 0.5.0 (`why`, loops, commands, REPL and VS Code grammar done).
+Last updated: 2026-10-18, version 0.6.0 (lists added on top of `why`, loops, commands, REPL, VS Code grammar).
 
 ## What Lucode is
 
@@ -46,6 +46,7 @@ rule: *keep it small and coherent; add a feature only when it solves a real prob
 | Loops | `repeat N times` (whole number >= 0; `times` is only special there) and `while condition`. Both cap at 1,000,000 runs. `for each` waits for lists. `when` is still checked after every assignment inside loops. |
 | Commands | `to name inputs` + indented body; call as `name v1 v2` (no parentheses; arity known from the definition, so define before use; use `(...)` to group). `give value` returns. A command without `give` only works as a line of its own. Inside a command, assignments are local and never touch outer variables or trigger `when`; rules always read top-level values. Recursion capped at 200. `to` is top level only. |
 | REPL | `lucode` with no file. Persistent state; block openers read until an empty line; `exit`/`quit`/Ctrl+D. Waiting-`when` typo check is skipped (program never ends). |
+| Lists | Word-style, positions start at **1**. `list 1, 2, 3` (`list` alone = empty); `item N of xs`; `count of xs`; `add v to xs`; `remove item N from xs`; `for each x in xs`; `v in xs`. `for` and `list` are keywords; `each`, `in`, `item`, `count`, `of`, `from` are contextual (`item` is only the accessor when followed by a number, `(` or a name other than `of`/`in`; `count` only before `of`). Lists are values (copy on assign; `add`/`remove` build a new list and assign it, so `when` fires and commands stay local). `item/count/for each/in` also work on text. Items inside a `list` literal are full expressions, so `list 1, 2 = list 1, 2` doesn't do what it looks like: use variables. Not yet: changing one item in place, list + list, sorting. |
 | Independence | Lucode is standalone (CLI, later VS Code). Blockliner is an add-on via a language pack, never a dependency. |
 
 ## Rules (v0.2) — exact semantics
@@ -104,7 +105,7 @@ src/Lucode/
                   "Unknown command 'x'" with a did-you-mean hint (unless x is
                   a command defined earlier: then it's a call). _commands maps
                   name -> input count; the REPL shares one table across lines.
-  Interpreter.cs  Values are C# double / string / bool.
+  Interpreter.cs  Values are C# double / string / bool / List<object> (treated as immutable).
                   _variables dictionary, _rules dictionary, _evaluating list
                   for cycle detection. _watchers (Watcher: WhenStmt, WasTrue,
                   Waiting) and _firing (stack for the loop limit).
@@ -124,7 +125,7 @@ Tests: `tests/cases/*.luc` + `*.expected` (stdout+stderr combined; the file is
 copied to `test.luc` before running, so error messages say `test.luc`).
 Run with `./tests/run.sh` (set `SKIP_BUILD=1` to reuse an existing `build/`).
 `./tests/repl.sh` feeds `tests/repl.in` to the REPL.
-**74 case tests + the REPL test, all passing** at 0.5.0.
+**74 case tests + the REPL test passed at 0.5.0.** 0.6.0 adds 8 `list_*` cases, written without a .NET SDK to hand, so run the suite first.
 
 No NuGet packages are used. If NuGet is unreachable, restore offline:
 `dotnet restore src/Lucode --source <empty dir>`.
@@ -132,7 +133,7 @@ No NuGet packages are used. If NuGet is unreachable, restore offline:
 ## Next steps, in order
 
 1. ~~`when`, `why`, loops, commands, REPL, VS Code grammar~~ — **done**.
-2. **Lists** (needed for `for each item in list`), then text operations and input.
+2. ~~Lists~~ — **done (0.6.0)**. Next: text operations (split/join/upper/lower), sorting, input.
 3. **Tooling:** later an LSP; the grammar currently can't colour calls like `add 2 3`.
 4. **Blockliner language pack** (see below).
 5. **Later:** multiple rules with the same name = "any of them" (inference).

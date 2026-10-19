@@ -44,8 +44,8 @@
     },
     "statement-keyword": {
       "patterns": [
-        { "name": "keyword.control.lucode", "match": "(?i)\\b(if|else|when|while|give)\\b" },
-        { "name": "keyword.other.lucode", "match": "(?i)\\b(print|why|rule|repeat|to)\\b" }
+        { "name": "keyword.control.lucode", "match": "(?i)\\b(if|else|when|while|give|for)\\b" },
+        { "name": "keyword.other.lucode", "match": "(?i)\\b(print|why|rule|repeat|to|list)\\b" }
       ]
     },
     "assignment": {
@@ -58,7 +58,7 @@
         { "include": "#string" },
         { "include": "#number" },
         { "name": "constant.language.boolean.lucode", "match": "(?i)\\b(true|false)\\b" },
-        { "name": "keyword.operator.word.lucode", "match": "(?i)\\b(and|or|not|is)\\b" },
+        { "name": "keyword.operator.word.lucode", "match": "(?i)\\b(and|or|not|is|in|each|of|item|count|add|remove|from)\\b" },
         { "name": "keyword.operator.comparison.lucode", "match": "<=|>=|!=|<|>|=" },
         { "name": "keyword.operator.arithmetic.lucode", "match": "[-+*/%]" },
         { "include": "#statement-keyword" }

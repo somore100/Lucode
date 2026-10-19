@@ -18,10 +18,13 @@ public enum TokenType
     While,
     To,
     Give,
+    For,
+    List,
     And,
     Or,
     Not,
     Is,
+    In,           // "in": only a keyword inside a comparison ("3 in scores")
     True,
     False,
 
@@ -43,6 +46,7 @@ public enum TokenType
     // Grouping
     LeftParen,
     RightParen,
+    Comma,
 
     // Structure
     Newline,

@@ -1,0 +1,6 @@
+to total nums
+    sum = 0
+    for each n in nums
+        sum = sum + n
+    give sum
+print total list 10, 20, 30

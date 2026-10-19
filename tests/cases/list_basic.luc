@@ -1,0 +1,15 @@
+scores = list 90, 75, 82
+print scores
+print count of scores
+print item 1 of scores
+print item 3 of scores
+add 60 to scores
+print scores
+print count of scores
+remove item 2 from scores
+print scores
+empty = list
+print empty
+print count of empty
+print item 2 of "hello"
+print count of "hello"
