@@ -1,0 +1,11 @@
+print "[" + trim "  hi there  " + "]"
+print find "or" in "world"
+print find "z" in "world"
+print replace "a" with "o" in "banana"
+print replace "an" with "" in "banana"
+name = "Lu Code"
+print upper replace " " with "-" in name
+trim = "shadow"
+print trim
+find = 3
+print find

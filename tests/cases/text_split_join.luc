@@ -1,0 +1,10 @@
+line = "red,green,blue"
+colors = split line by ","
+print colors
+print count of colors
+print item 2 of colors
+print join colors with " + "
+print join (split "a b c" by " ") with "-"
+print split "abc" by ""
+print split "x,,y" by ","
+print join (list 1, 2, 3) with ", "

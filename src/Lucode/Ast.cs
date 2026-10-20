@@ -27,6 +27,12 @@ public sealed record ItemExpr(Expr Position, Expr Source, int Line) : Expr(Line)
 /// <summary>"count of scores": how many items a list has (or letters a text has).</summary>
 public sealed record CountExpr(Expr Source, int Line) : Expr(Line);
 
+/// <summary>
+/// A word that works on values: "upper name", "lower name", "number text", "ask prompt",
+/// "split text by sep", "join items with sep". Word is lowercase; Args holds one value per slot.
+/// </summary>
+public sealed record BuiltinExpr(string Word, List<Expr> Args, int Line) : Expr(Line);
+
 // ----- Statements: things that do something -----
 
 public abstract record Stmt(int Line);
@@ -72,3 +78,6 @@ public sealed record AddStmt(Expr Value, string Target, int Line) : Stmt(Line);
 
 /// <summary>"remove item 2 from scores": the list loses that item.</summary>
 public sealed record RemoveStmt(Expr Position, string Target, int Line) : Stmt(Line);
+
+/// <summary>"sort scores": the list is put in order (all numbers, or all text).</summary>
+public sealed record SortStmt(string Target, bool Descending, int Line) : Stmt(Line);

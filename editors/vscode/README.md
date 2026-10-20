@@ -8,7 +8,7 @@ auto-indent and folding for `.luc` files.
 Copy or symlink this folder into your VS Code extensions folder, then restart VS Code:
 
 ```bash
-ln -s "$PWD" ~/.vscode/extensions/somore100.lucode-0.1.0
+ln -s "$PWD" ~/.vscode/extensions/somore100.lucode-0.2.0
 ```
 
 Or press F5 inside this folder in VS Code to open a test window.

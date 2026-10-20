@@ -13,7 +13,7 @@ namespace Lucode;
 ///   repeat      := "repeat" expr "times" NEWLINE block
 ///   while       := "while" expr NEWLINE block
 ///   for         := "for" "each" NAME "in" expr NEWLINE block
-///   change      := "add" expr "to" NAME | "remove" "item" sum "from" NAME
+///   change      := "add" expr "to" NAME | "remove" "item" sum "from" NAME | "sort" NAME [ "descending" ]
 ///   why         := "why" NAME NEWLINE
 ///   if          := "if" expr NEWLINE block ( "else" ( if | NEWLINE block ) )?
 ///   print       := "print" expr NEWLINE
@@ -31,10 +31,29 @@ namespace Lucode;
 ///   unary       := "-" unary | primary
 ///   primary     := NUMBER | TEXT | "true" | "false" | NAME | "(" expr ")"
 ///               | "list" ( expr ( "," expr )* )? | "item" sum "of" primary | "count" "of" primary
+///               | ( "upper" | "lower" | "number" | "ask" ) unary
+///               | "split" unary "by" unary | "join" unary "with" unary
+///               | "find" unary "in" unary | "replace" unary "with" unary "in" unary | "trim" unary
 /// </summary>
 public sealed class Parser
 {
-    private static readonly string[] Commands = { "print", "if", "else", "rule", "when", "why", "repeat", "while", "to", "give", "for", "add", "remove" };
+    private static readonly string[] Commands = { "print", "if", "else", "rule", "when", "why", "repeat", "while", "to", "give", "for", "add", "remove", "sort" };
+
+    // Words that work on values. Each is only special when a value follows, so they still work as names.
+    // The second part is the little word between the two values, if there are two.
+    private static readonly Dictionary<string, (string[] Between, string Example)> Builtins =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["upper"] = (Array.Empty<string>(), "upper name"),
+            ["lower"] = (Array.Empty<string>(), "lower name"),
+            ["trim"] = (Array.Empty<string>(), "trim name"),
+            ["number"] = (Array.Empty<string>(), "number text"),
+            ["ask"] = (Array.Empty<string>(), "ask \"Name?\""),
+            ["split"] = (new[] { "by" }, "split text by \",\""),
+            ["join"] = (new[] { "with" }, "join items with \", \""),
+            ["find"] = (new[] { "in" }, "find \"a\" in text"),
+            ["replace"] = (new[] { "with", "in" }, "replace \"a\" with \"b\" in text"),
+        };
 
     private readonly List<Token> _tokens;
     private int _pos;
@@ -232,10 +251,19 @@ public sealed class Parser
         return new ForEachStmt(name.Text, source, body, forToken.Line);
     }
 
-    /// <summary>"add value to scores" / "remove item 2 from scores". Reads from the 'add' / 'remove' word.</summary>
+    /// <summary>"add value to scores" / "remove item 2 from scores" / "sort scores". Reads from the first word.</summary>
     private Stmt ListChange()
     {
         var word = Advance();
+        if (word.Text.Equals("sort", StringComparison.OrdinalIgnoreCase))
+        {
+            var sorted = ListName("sort");
+            bool descending = IsWord("descending");
+            if (descending) Advance();
+            EndOfLine("the 'sort' line");
+            return new SortStmt(sorted, descending, word.Line);
+        }
+
         if (word.Text.Equals("add", StringComparison.OrdinalIgnoreCase))
         {
             if (Check(TokenType.Newline))
@@ -321,7 +349,8 @@ public sealed class Parser
         }
 
         if (!Check(TokenType.Equal) && (name.Text.Equals("add", StringComparison.OrdinalIgnoreCase)
-                                        || name.Text.Equals("remove", StringComparison.OrdinalIgnoreCase)))
+                                        || name.Text.Equals("remove", StringComparison.OrdinalIgnoreCase)
+                                        || name.Text.Equals("sort", StringComparison.OrdinalIgnoreCase)))
         {
             _pos--;
             return ListChange();
@@ -506,6 +535,23 @@ public sealed class Parser
                         throw Error(Peek(), "Expected 'of' after the position, like: item 2 of scores");
                     Advance();
                     return new ItemExpr(position, Primary(), token.Line);
+                }
+                if (!_commands.ContainsKey(token.Text) && Builtins.TryGetValue(token.Text, out var builtin)
+                    && CheckAny(TokenType.Number, TokenType.String, TokenType.LeftParen, TokenType.List,
+                                TokenType.True, TokenType.False, TokenType.Identifier)
+                    && !IsWord("of") && !IsWord("in"))
+                {
+                    var wordArgs = new List<Expr> { Unary() };
+                    foreach (var between in builtin.Between)
+                    {
+                        if (!IsWord(between))
+                            throw Error(Peek(), $"Expected '{between}' after the first value, like: {builtin.Example}");
+                        Advance();
+                        if (CheckAny(TokenType.Newline, TokenType.RightParen, TokenType.Eof))
+                            throw Error(Peek(), $"'{token.Text}' needs a second value after '{between}', like: {builtin.Example}");
+                        wordArgs.Add(Unary());
+                    }
+                    return new BuiltinExpr(token.Text.ToLowerInvariant(), wordArgs, token.Line);
                 }
                 if (_commands.TryGetValue(token.Text, out var arity))
                 {

@@ -1,0 +1,4 @@
+name = ask "Name?"
+print "Hello, " + name
+age = number ask "Age?"
+print "Next year: " + (age + 1)

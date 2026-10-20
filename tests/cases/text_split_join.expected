@@ -1,0 +1,8 @@
+list "red", "green", "blue"
+3
+green
+red + green + blue
+a-b-c
+list "a", "b", "c"
+list "x", "", "y"
+1, 2, 3

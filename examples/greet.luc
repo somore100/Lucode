@@ -1,0 +1,10 @@
+# Reads from the user, then works with the text
+name = ask "What is your name?"
+print "Hello, " + upper name + "!"
+
+line = ask "Type some numbers separated by commas:"
+total = 0
+for each part in split line by ","
+    total = total + number part
+
+print "Their sum is " + total

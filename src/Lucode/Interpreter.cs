@@ -33,6 +33,7 @@ public sealed class Interpreter
     }
 
     private readonly TextWriter _output;
+    private readonly TextReader _input;
 
     private sealed class Watcher
     {
@@ -45,9 +46,10 @@ public sealed class Interpreter
         public MissingValueError? Waiting { get; set; }
     }
 
-    public Interpreter(TextWriter? output = null)
+    public Interpreter(TextWriter? output = null, TextReader? input = null)
     {
         _output = output ?? Console.Out;
+        _input = input ?? Console.In;
     }
 
     /// <param name="finish">False in the REPL, where the program isn't over after each chunk.</param>
@@ -105,6 +107,11 @@ public sealed class Interpreter
                 var removed = new List<object>(removeFrom);
                 removed.RemoveAt(removeAt);
                 Assign(remove.Target, removed, remove.Line);
+                break;
+
+            case SortStmt sort:
+                var sortFrom = CurrentList(sort.Target, sort.Line, "sort");
+                Assign(sort.Target, Sorted(sortFrom, sort.Descending, sort.Line), sort.Line);
                 break;
 
             case CommandStmt command:
@@ -296,6 +303,11 @@ public sealed class Interpreter
                 Collect(count.Source, found);
                 break;
 
+            case BuiltinExpr word:
+                foreach (var arg in word.Args)
+                    Collect(arg, found);
+                break;
+
             case LogicalExpr logical:
                 // Same order as EvaluateLogical, so we never look at a side that was skipped.
                 bool settles = logical.Operator.Type == TokenType.Or; // the value that ends it early
@@ -402,6 +414,7 @@ public sealed class Interpreter
         ListExpr list => list.Items.Select(Evaluate).ToList(),
         ItemExpr item => EvaluateItem(item),
         CountExpr count => EvaluateCount(count),
+        BuiltinExpr word => EvaluateBuiltin(word),
         CallExpr call => Call(call) ?? throw new LucodeError(call.Line,
             $"'{call.Name}' doesn't give a value, so it can't be used as one."),
         _ => throw new InvalidOperationException($"Unknown expression {expr.GetType().Name}"),
@@ -503,6 +516,91 @@ public sealed class Interpreter
             string text => (double)text.Length,
             _ => throw new LucodeError(count.Line, $"'count of' needs a list or text, but got {TypeName(source)} {Describe(source)}."),
         };
+    }
+
+    private object EvaluateBuiltin(BuiltinExpr word)
+    {
+        // Every value is worked out before the word runs, left to right.
+        var args = word.Args.Select(Evaluate).ToList();
+
+        switch (word.Word)
+        {
+            case "upper":
+                return RequireText(args[0], "upper", word.Line).ToUpperInvariant();
+            case "lower":
+                return RequireText(args[0], "lower", word.Line).ToLowerInvariant();
+
+            case "trim":
+                return RequireText(args[0], "trim", word.Line).Trim();
+
+            case "find":
+                string needle = RequireText(args[0], "find", word.Line);
+                string haystack = RequireText(args[1], "find ... in", word.Line);
+                // Position of the first match counting from 1, or 0 when it isn't there.
+                return (double)(haystack.IndexOf(needle, StringComparison.Ordinal) + 1);
+
+            case "replace":
+                string oldText = RequireText(args[0], "replace", word.Line);
+                string newText = RequireText(args[1], "replace ... with", word.Line);
+                string inText = RequireText(args[2], "replace ... in", word.Line);
+                if (oldText.Length == 0)
+                    throw new LucodeError(word.Line, "'replace' needs some text to look for, but got \"\".");
+                return inText.Replace(oldText, newText, StringComparison.Ordinal);
+
+            case "number":
+                if (args[0] is double) return args[0];
+                string digits = RequireText(args[0], "number", word.Line);
+                if (double.TryParse(digits, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+                    && double.IsFinite(parsed))
+                    return parsed;
+                throw new LucodeError(word.Line, $"Can't turn \"{digits}\" into a number.");
+
+            case "ask":
+                _output.Write(Format(args[0]) + " ");
+                _output.Flush();
+                return _input.ReadLine()
+                    ?? throw new LucodeError(word.Line, "'ask' has no more input to read.");
+
+            case "split":
+                string text = RequireText(args[0], "split", word.Line);
+                string separator = RequireText(args[1], "split ... by", word.Line);
+                // An empty separator splits into single letters.
+                var pieces = separator.Length == 0
+                    ? text.Select(c => c.ToString())
+                    : text.Split(separator, StringSplitOptions.None);
+                return pieces.Select(piece => (object)piece).ToList();
+
+            case "join":
+                if (args[0] is not List<object> items)
+                    throw new LucodeError(word.Line,
+                        $"'join' needs a list, but got {TypeName(args[0])} {Describe(args[0])}.");
+                string glue = RequireText(args[1], "join ... with", word.Line);
+                return string.Join(glue, items.Select(Format));
+
+            default:
+                throw new InvalidOperationException($"Unknown word {word.Word}");
+        }
+    }
+
+    private static string RequireText(object value, string word, int line) =>
+        value as string
+            ?? throw new LucodeError(line, $"'{word}' needs text, but got {TypeName(value)} {Describe(value)}.");
+
+    /// <summary>A sorted copy of a list: all numbers (smallest first) or all text (A to Z, ignoring case).</summary>
+    private static List<object> Sorted(List<object> list, bool descending, int line)
+    {
+        if (list.All(item => item is double))
+            return (descending ? list.OrderByDescending(item => (double)item) : list.OrderBy(item => (double)item)).ToList();
+        if (list.All(item => item is string))
+            return (descending
+                ? list.OrderByDescending(item => (string)item, StringComparer.OrdinalIgnoreCase)
+                : list.OrderBy(item => (string)item, StringComparer.OrdinalIgnoreCase)).ToList();
+
+        var first = list.First(); // the list isn't empty here: an empty list is all numbers
+        var odd = list.FirstOrDefault(item => item.GetType() != first.GetType());
+        throw new LucodeError(line, odd is null
+            ? $"Can only sort a list of numbers or text, but this one holds {TypeName(first)} {Describe(first)}."
+            : $"Can only sort a list of all numbers or all text, but this one has {TypeName(first)} and {TypeName(odd)}.");
     }
 
     private object EvaluateUnary(UnaryExpr unary)

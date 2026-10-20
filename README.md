@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.jpg" alt="Lucode logo" width="160">
+</p>
+
 # Lucode
 
 **A small, readable programming language for logic, math and live relationships.**
@@ -20,7 +24,7 @@ else
     print "Access denied"
 ```
 
-> **Status:** early development, **v0.5**. The language works and is tested, but
+> **Status:** early development, **v0.7**. The language works and is tested, but
 > syntax may still change before 1.0.
 
 ## Why Lucode?
@@ -219,6 +223,69 @@ greet "Sam"            # Hello, Sam
   changes the outside. Rules always look at the top-level values.
 - `to` goes at the top level of the file.
 
+### Text
+
+Words that work on text. Like `item 1 of xs`, they read as plain English
+and take their values straight after the word, with no parentheses or commas:
+
+```
+name = "Lu Code"
+print upper name                       # LU CODE
+print lower name                       # lu code
+
+parts = split "red,green,blue" by ","  # list "red", "green", "blue"
+print join parts with " + "            # red + green + blue
+print split "abc" by ""                # list "a", "b", "c"
+
+n = number "42"                        # text to a number
+
+print trim "  hi  "                    # hi
+print find "or" in "world"             # 2 (0 when it isn't there)
+print replace "a" with "o" in "banana" # bonono
+```
+
+- `upper` and `lower` need text. `split text by separator` makes a list of
+  text (an empty separator gives single letters). `join items with separator`
+  makes text out of any list.
+- `trim` removes spaces at both ends. `find a in text` gives the position of
+  the first match, counting from 1, or 0 if there is none. `replace a with b in
+  text` swaps every `a` for `b` (`a` can't be empty).
+- `number` turns text like `"42"` or `"3.5"` into a number, and is an error for
+  anything else.
+- Wrap a bigger expression in parentheses: `upper (first + last)`. Without them
+  the word takes just the next value: `upper a + b` is `(upper a) + b`.
+- `upper`, `lower`, `trim`, `number`, `split`, `join`, `find`, `replace` (and `ask`, `sort`) are only special
+  when a value follows, so they still work as names.
+
+### Sorting
+
+```
+scores = list 30, 5, 100, 12
+sort scores
+print scores                  # list 5, 12, 30, 100
+```
+
+`sort` puts a list in order: smallest first for numbers, A to Z for text
+(ignoring capital letters). A list that mixes numbers and text is an error.
+Add `descending` for biggest first or Z to A: `sort scores descending`.
+Like `add` and `remove`, it changes the variable, so `b = a` first if you want
+to keep the original.
+
+### Input: `ask`
+
+```
+name = ask "What is your name?"
+print "Hello, " + name
+
+age = number ask "Age?"
+print "Next year: " + (age + 1)
+```
+
+`ask` shows its prompt, waits for a line and gives it back as text, so use
+`number` when you need math. It's an error if there is no more input, for
+example when input comes from a file that ran out. Reading from files is
+still to come.
+
 ### Trying things out: the prompt
 
 Run `lucode` with no file to get an interactive prompt. Everything you define
@@ -304,11 +371,12 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 - [x] **v0.4 Repetition:** `repeat 3 times` and `while ...` (`for each` waits for lists)
 - [x] **v0.5 Commands:** user-defined commands (functions) with inputs
 - [x] **v0.6 Lists:** `list 1, 2, 3`, `item N of`, `count of`, `add` / `remove`, `for each`, `in`
+- [x] **v0.7 Text and input:** `upper`, `lower`, `split`, `join`, `number`, `sort`, `ask`
 
 ### Tooling
 
-- [ ] Interactive mode: type Lucode and see results line by line
-- [ ] VS Code extension: syntax highlighting for `.luc` files
+- [x] Interactive mode: type Lucode and see results line by line
+- [x] VS Code extension: syntax highlighting for `.luc` files (`editors/vscode`, with icon)
 - [ ] Language server: errors shown while typing, in any editor that supports LSP
 - [ ] Prebuilt downloads for Linux, Windows and macOS (no .NET install needed)
 
@@ -322,8 +390,7 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 
 - [ ] Several rules with the same name meaning "any of these is enough"
       (rule-based reasoning)
-- [ ] Text operations (split, join, upper/lower) and sorting lists
-- [ ] Reading input from the user and from files
+- [ ] Reading input from files, and more text words (replace, trim, find)
 
 ## Project layout
 
@@ -339,6 +406,8 @@ src/Lucode/
 examples/          sample .luc programs
 tests/cases/       test programs (.luc) with expected output (.expected)
 tests/run.sh       runs all tests
+editors/vscode/    VS Code extension: highlighting and icon for .luc files
+logo.jpg           the Lucode logo
 docs/HANDOFF.md    design decisions and current state, for contributors
 ```
 
@@ -349,7 +418,8 @@ docs/HANDOFF.md    design decisions and current state, for contributors
 ```
 
 Each `tests/cases/name.luc` is run and its output compared with
-`name.expected`. To add a test, add both files.
+`name.expected`. To add a test, add both files. A test that uses `ask` can
+add `name.in`, which is fed to it as input.
 
 ## Contributing
 

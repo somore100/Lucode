@@ -11,7 +11,10 @@ tmp=$(mktemp -d)
 for test in tests/cases/*.luc; do
     name=$(basename "$test" .luc)
     cp "$test" "$tmp/test.luc"
-    actual=$(dotnet build/lucode.dll "$tmp/test.luc" 2>&1)
+    # A test may bring its own input for 'ask' as name.in; otherwise there is none.
+    input=/dev/null
+    [ -f "tests/cases/$name.in" ] && input="tests/cases/$name.in"
+    actual=$(dotnet build/lucode.dll "$tmp/test.luc" 2>&1 < "$input")
     if [ "$actual" == "$(cat "tests/cases/$name.expected")" ]; then
         pass=$((pass + 1))
     else

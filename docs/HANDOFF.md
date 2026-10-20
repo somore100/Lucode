@@ -1,7 +1,7 @@
 # Lucode — Handoff
 
 Paste or attach this file at the start of a new chat to continue the project.
-Last updated: 2026-10-18, version 0.6.0 (lists added on top of `why`, loops, commands, REPL, VS Code grammar).
+Last updated: 2026-10-20, version 0.7.1 (text words incl. trim/find/replace, `sort` (+ `descending`) and `ask` on top of lists, `why`, loops, commands, REPL, VS Code grammar + icon).
 
 ## What Lucode is
 
@@ -47,6 +47,9 @@ rule: *keep it small and coherent; add a feature only when it solves a real prob
 | Commands | `to name inputs` + indented body; call as `name v1 v2` (no parentheses; arity known from the definition, so define before use; use `(...)` to group). `give value` returns. A command without `give` only works as a line of its own. Inside a command, assignments are local and never touch outer variables or trigger `when`; rules always read top-level values. Recursion capped at 200. `to` is top level only. |
 | REPL | `lucode` with no file. Persistent state; block openers read until an empty line; `exit`/`quit`/Ctrl+D. Waiting-`when` typo check is skipped (program never ends). |
 | Lists | Word-style, positions start at **1**. `list 1, 2, 3` (`list` alone = empty); `item N of xs`; `count of xs`; `add v to xs`; `remove item N from xs`; `for each x in xs`; `v in xs`. `for` and `list` are keywords; `each`, `in`, `item`, `count`, `of`, `from` are contextual (`item` is only the accessor when followed by a number, `(` or a name other than `of`/`in`; `count` only before `of`). Lists are values (copy on assign; `add`/`remove` build a new list and assign it, so `when` fires and commands stay local). `item/count/for each/in` also work on text. Items inside a `list` literal are full expressions, so `list 1, 2 = list 1, 2` doesn't do what it looks like: use variables. Not yet: changing one item in place, list + list, sorting. |
+| Text words | Word-style prefix, same feel as `item 2 of xs`, no parentheses or commas: `upper x`, `lower x`, `trim x`, `number x`, `find a in t` (1-based, 0 = none), `replace a with b in t` (a not empty), `ask "prompt"`, `split text by sep`, `join items with sep`. One `BuiltinExpr(word, args)` node; the parser's `Builtins` table lists the little words between values (`by`, `with`, `in`; `replace` has two). Each slot reads **one unary value**, so `upper a + b` is `(upper a) + b`; use `(...)` for more. All are contextual: only special when a value (number, text, `(`, `list`, true/false or a name other than `of`/`in`) follows, so `upper = 1` and `print upper` still work. `split` with an empty separator gives letters. `join` formats any items. `number` rejects anything that isn't a finite number. |
+| Sort | `sort xs` is a statement like `add`/`remove` (assigns a new list, so `when` fires and commands stay local). All numbers (ascending) or all text (case-insensitive, stable); mixed or other kinds is an error. No expression form and `sort xs descending` reverses it. |
+| Input | `name = ask "prompt?"`: writes the prompt plus a space (no newline), reads one line from stdin, gives text (use `number ask ...` for math). End of input is an error. `Interpreter` takes an optional `TextReader`. `ask` inside a rule or `when` condition would prompt on every read (not guarded). Test cases can ship `name.in`; `run.sh` feeds it (otherwise `/dev/null`). Not yet: reading files. |
 | Independence | Lucode is standalone (CLI, later VS Code). Blockliner is an add-on via a language pack, never a dependency. |
 
 ## Rules (v0.2) — exact semantics
@@ -118,14 +121,15 @@ src/Lucode/
   Repl.cs         Interactive prompt (see Decisions).
   Program.cs      `lucode [file.luc]` (no file = REPL), --help, --version. Errors go to stderr as
                   "file.luc, Line N: message", exit code 1.
-editors/vscode/   TextMate grammar + language configuration for .luc files.
+editors/vscode/   TextMate grammar + language configuration + icon.png (256px, from logo.jpg) for .luc files.
+logo.jpg          project logo, shown at the top of the README.
 ```
 
 Tests: `tests/cases/*.luc` + `*.expected` (stdout+stderr combined; the file is
 copied to `test.luc` before running, so error messages say `test.luc`).
 Run with `./tests/run.sh` (set `SKIP_BUILD=1` to reuse an existing `build/`).
 `./tests/repl.sh` feeds `tests/repl.in` to the REPL.
-**74 case tests + the REPL test passed at 0.5.0.** 0.6.0 adds 8 `list_*` cases, written without a .NET SDK to hand, so run the suite first.
+**98 case tests + REPL passed at 0.7.1 (0.7.0 verified).** Earlier: 74 case tests + the REPL test passed at 0.5.0.** 0.6.0 added 8 `list_*` cases (passing, 82 total). 0.7.0 added `text_case`, `text_split_join`, `list_sort`, `input_ask` and 6 `err_*` cases, written without a .NET SDK to hand, so **build and run the suite first**.
 
 No NuGet packages are used. If NuGet is unreachable, restore offline:
 `dotnet restore src/Lucode --source <empty dir>`.
@@ -133,7 +137,7 @@ No NuGet packages are used. If NuGet is unreachable, restore offline:
 ## Next steps, in order
 
 1. ~~`when`, `why`, loops, commands, REPL, VS Code grammar~~ — **done**.
-2. ~~Lists~~ — **done (0.6.0)**. Next: text operations (split/join/upper/lower), sorting, input.
+2. ~~Lists~~ — **done (0.6.0)**. ~~Text operations, sorting, `ask`~~ — **done (0.7.0)**. Done in 0.7.1: trim, find, replace, `sort ... descending`. Next: reading files.
 3. **Tooling:** later an LSP; the grammar currently can't colour calls like `add 2 3`.
 4. **Blockliner language pack** (see below).
 5. **Later:** multiple rules with the same name = "any of them" (inference).

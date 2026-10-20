@@ -1,0 +1,9 @@
+name = "Lu Code"
+print upper name
+print lower name
+print upper "abc" + "!"
+shout = upper name + "?"
+print shout
+print count of upper name
+upper = "shadow"
+print upper

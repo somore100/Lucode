@@ -1,0 +1,8 @@
+nums = list 30, 5, 100, 12
+sort nums descending
+print nums
+words = list "pear", "Apple", "fig"
+sort words descending
+print words
+sort nums
+print nums

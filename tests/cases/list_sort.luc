@@ -1,0 +1,20 @@
+nums = list 30, 5, 100, 12
+sort nums
+print nums
+words = list "pear", "Apple", "fig", "banana"
+sort words
+print words
+empty = list
+sort empty
+print empty
+copy = nums
+add 1 to copy
+sort copy
+print copy
+print nums
+to smallest xs
+    sort xs
+    give item 1 of xs
+raw = list 3, 1, 2
+print smallest raw
+print raw

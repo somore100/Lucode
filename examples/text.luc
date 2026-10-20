@@ -1,0 +1,7 @@
+# Text operations and sorting
+csv = "pear,Apple,fig,banana"
+fruits = split csv by ","
+sort fruits
+print join fruits with " < "
+print upper join fruits with ", "
+print lower ("SHOUTING" + " QUIETLY")
