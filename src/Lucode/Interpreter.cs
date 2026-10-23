@@ -561,6 +561,25 @@ public sealed class Interpreter
                 return _input.ReadLine()
                     ?? throw new LucodeError(word.Line, "'ask' has no more input to read.");
 
+            case "read":
+                string path = RequireText(args[0], "read", word.Line);
+                try
+                {
+                    return File.ReadAllText(path);
+                }
+                catch (FileNotFoundException)
+                {
+                    throw new LucodeError(word.Line, $"Can't read \"{path}\": there is no such file.");
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    throw new LucodeError(word.Line, $"Can't read \"{path}\": there is no such folder.");
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    throw new LucodeError(word.Line, $"Can't read \"{path}\": {e.Message}");
+                }
+
             case "split":
                 string text = RequireText(args[0], "split", word.Line);
                 string separator = RequireText(args[1], "split ... by", word.Line);

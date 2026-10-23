@@ -283,8 +283,19 @@ print "Next year: " + (age + 1)
 
 `ask` shows its prompt, waits for a line and gives it back as text, so use
 `number` when you need math. It's an error if there is no more input, for
-example when input comes from a file that ran out. Reading from files is
-still to come.
+example when input comes from a file that ran out.
+
+### Files: `read`
+
+```
+data = read "scores.csv"
+rows = split (trim data) by ","
+print count of rows
+```
+
+`read path` gives the whole file as text (the path is relative to where you run
+`lucode`). Combine it with `split text by ","` to turn it into a list. A file
+that doesn't exist is an error.
 
 ### Trying things out: the prompt
 
@@ -390,7 +401,7 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 
 - [ ] Several rules with the same name meaning "any of these is enough"
       (rule-based reasoning)
-- [ ] Reading input from files, and more text words (replace, trim, find)
+- [ ] Writing files
 
 ## Project layout
 

@@ -1,0 +1,1 @@
+print read "no_such_file.txt"

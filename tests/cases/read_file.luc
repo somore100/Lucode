@@ -1,0 +1,4 @@
+data = read "tests/cases/read_file.txt"
+colors = split (trim data) by ","
+print count of colors
+print join colors with " + "

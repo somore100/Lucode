@@ -31,7 +31,7 @@ namespace Lucode;
 ///   unary       := "-" unary | primary
 ///   primary     := NUMBER | TEXT | "true" | "false" | NAME | "(" expr ")"
 ///               | "list" ( expr ( "," expr )* )? | "item" sum "of" primary | "count" "of" primary
-///               | ( "upper" | "lower" | "number" | "ask" ) unary
+///               | ( "upper" | "lower" | "number" | "ask" | "read" ) unary
 ///               | "split" unary "by" unary | "join" unary "with" unary
 ///               | "find" unary "in" unary | "replace" unary "with" unary "in" unary | "trim" unary
 /// </summary>
@@ -49,6 +49,7 @@ public sealed class Parser
             ["trim"] = (Array.Empty<string>(), "trim name"),
             ["number"] = (Array.Empty<string>(), "number text"),
             ["ask"] = (Array.Empty<string>(), "ask \"Name?\""),
+            ["read"] = (Array.Empty<string>(), "read \"notes.txt\""),
             ["split"] = (new[] { "by" }, "split text by \",\""),
             ["join"] = (new[] { "with" }, "join items with \", \""),
             ["find"] = (new[] { "in" }, "find \"a\" in text"),
