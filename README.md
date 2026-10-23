@@ -437,3 +437,7 @@ add `name.in`, which is fed to it as input.
 Ideas, bug reports and example programs are welcome; open an
 [issue](https://github.com/somore100/Lucode/issues). Lucode is young, so
 syntax suggestions are especially useful now, before 1.0.
+
+## License
+
+[MIT](LICENSE)
