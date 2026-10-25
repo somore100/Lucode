@@ -14,6 +14,7 @@ namespace Lucode;
 ///   while       := "while" expr NEWLINE block
 ///   for         := "for" "each" NAME "in" expr NEWLINE block
 ///   change      := "add" expr "to" NAME | "remove" "item" sum "from" NAME | "sort" NAME [ "descending" ]
+///   write       := "write" expr "to" expr
 ///   why         := "why" NAME NEWLINE
 ///   if          := "if" expr NEWLINE block ( "else" ( if | NEWLINE block ) )?
 ///   print       := "print" expr NEWLINE
@@ -37,7 +38,7 @@ namespace Lucode;
 /// </summary>
 public sealed class Parser
 {
-    private static readonly string[] Commands = { "print", "if", "else", "rule", "when", "why", "repeat", "while", "to", "give", "for", "add", "remove", "sort" };
+    private static readonly string[] Commands = { "print", "if", "else", "rule", "when", "why", "repeat", "while", "to", "give", "for", "add", "remove", "sort", "write" };
 
     // Words that work on values. Each is only special when a value follows, so they still work as names.
     // The second part is the little word between the two values, if there are two.
@@ -355,6 +356,20 @@ public sealed class Parser
         {
             _pos--;
             return ListChange();
+        }
+
+        if (!Check(TokenType.Equal) && name.Text.Equals("write", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Check(TokenType.Newline))
+                throw Error(name, "'write' needs text and a file, like: write \"hello\" to \"notes.txt\"");
+            var content = Expression();
+            if (!Match(TokenType.To))
+                throw Error(Peek(), "Expected 'to' after the text, like: write \"hello\" to \"notes.txt\"");
+            if (Check(TokenType.Newline))
+                throw Error(Peek(), "'write ... to' needs a file name, like: write \"hello\" to \"notes.txt\"");
+            var path = Expression();
+            EndOfLine("the 'write' line");
+            return new WriteStmt(content, path, name.Line);
         }
 
         if (!Match(TokenType.Equal))

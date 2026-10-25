@@ -1,0 +1,9 @@
+path = "/tmp/lucode_write_file_test.txt"
+write "red,green" to path
+write "red,green,blue" to path
+colors = split (read path) by ","
+print count of colors
+write 42 to path
+print read path
+write join colors with "\n" to path
+print count of (split (read path) by "\n")

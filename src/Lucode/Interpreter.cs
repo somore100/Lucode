@@ -114,6 +114,22 @@ public sealed class Interpreter
                 Assign(sort.Target, Sorted(sortFrom, sort.Descending, sort.Line), sort.Line);
                 break;
 
+            case WriteStmt write:
+                string writeTo = RequireText(Evaluate(write.Path), "write ... to", write.Line);
+                try
+                {
+                    File.WriteAllText(writeTo, Format(Evaluate(write.Value)));
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    throw new LucodeError(write.Line, $"Can't write \"{writeTo}\": there is no such folder.");
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    throw new LucodeError(write.Line, $"Can't write \"{writeTo}\": {e.Message}");
+                }
+                break;
+
             case CommandStmt command:
                 if (_commands.ContainsKey(command.Name))
                     throw new LucodeError(command.Line, $"Command '{command.Name}' is already defined.");

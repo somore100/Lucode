@@ -79,5 +79,8 @@ public sealed record AddStmt(Expr Value, string Target, int Line) : Stmt(Line);
 /// <summary>"remove item 2 from scores": the list loses that item.</summary>
 public sealed record RemoveStmt(Expr Position, string Target, int Line) : Stmt(Line);
 
+/// <summary>"write text to \"notes.txt\"": the file now holds exactly that text.</summary>
+public sealed record WriteStmt(Expr Value, Expr Path, int Line) : Stmt(Line);
+
 /// <summary>"sort scores": the list is put in order (all numbers, or all text).</summary>
 public sealed record SortStmt(string Target, bool Descending, int Line) : Stmt(Line);

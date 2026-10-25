@@ -254,7 +254,7 @@ print replace "a" with "o" in "banana" # bonono
   anything else.
 - Wrap a bigger expression in parentheses: `upper (first + last)`. Without them
   the word takes just the next value: `upper a + b` is `(upper a) + b`.
-- `upper`, `lower`, `trim`, `number`, `split`, `join`, `find`, `replace` (and `ask`, `sort`) are only special
+- `upper`, `lower`, `trim`, `number`, `split`, `join`, `find`, `replace` (and `ask`, `sort`, `write`) are only special
   when a value follows, so they still work as names.
 
 ### Sorting
@@ -296,6 +296,18 @@ print count of rows
 `read path` gives the whole file as text (the path is relative to where you run
 `lucode`). Combine it with `split text by ","` to turn it into a list. A file
 that doesn't exist is an error.
+
+### Files: `write`
+
+```
+write "hello" to "greeting.txt"
+write join names with "\n" to "names.txt"
+```
+
+`write text to path` puts exactly that text in the file, replacing whatever was
+there (add `"\n"` yourself if you want a line break at the end). Numbers and
+lists are turned into text the same way `print` does. A folder that doesn't
+exist is an error.
 
 ### Trying things out: the prompt
 
