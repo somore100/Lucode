@@ -1,7 +1,7 @@
 # Lucode — Handoff
 
 Paste or attach this file at the start of a new chat to continue the project.
-Last updated: 2026-10-20, version 0.7.3 (text words incl. trim/find/replace, `sort` (+ `descending`) and `ask` on top of lists, `why`, loops, commands, REPL, VS Code grammar + icon).
+Last updated: 2026-10-20, version 0.8.0 (text words incl. trim/find/replace, `sort` (+ `descending`) and `ask` on top of lists, `why`, loops, commands, REPL, VS Code grammar + icon).
 
 ## What Lucode is
 
@@ -118,6 +118,7 @@ src/Lucode/
   LucodeError.cs  LucodeError(line, message); MissingValueError subclass;
                   Suggest.Hint() uses edit distance
                   (with swapped-letter support) for "Did you mean".
+  LanguageServer.cs  `lucode --lsp`: LSP over stdin/stdout, parse errors only (tests/lsp.sh).
   Repl.cs         Interactive prompt (see Decisions).
   Program.cs      `lucode [file.luc]` (no file = REPL), --help, --version. Errors go to stderr as
                   "file.luc, Line N: message", exit code 1.
@@ -137,8 +138,8 @@ No NuGet packages are used. If NuGet is unreachable, restore offline:
 ## Next steps, in order
 
 1. ~~`when`, `why`, loops, commands, REPL, VS Code grammar~~ — **done**.
-2. ~~Lists~~ — **done (0.6.0)**. ~~Text operations, sorting, `ask`~~ — **done (0.7.0)**. Done in 0.7.1: trim, find, replace, `sort ... descending`. Done in 0.7.2: `read`. Done in 0.7.3: `write`. Done in 0.7.3 (untested until first tag): `.github/workflows/release.yml` runs tests on every push and, on a `v*` tag, publishes self-contained single-file builds (linux-x64/arm64, win-x64, osx-x64/arm64) to a GitHub release. Next: LSP.
-3. **Tooling:** later an LSP; the grammar currently can't colour calls like `add 2 3`.
+2. ~~Lists~~ — **done (0.6.0)**. ~~Text operations, sorting, `ask`~~ — **done (0.7.0)**. Done in 0.7.1: trim, find, replace, `sort ... descending`. Done in 0.7.2: `read`. Done in 0.7.3: `write`. Done in 0.7.3 (untested until first tag): `.github/workflows/release.yml` runs tests on every push and, on a `v*` tag, publishes self-contained single-file builds (linux-x64/arm64, win-x64, osx-x64/arm64) to a GitHub release. Done in 0.8.0 (untested until run): `lucode --lsp` (`LanguageServer.cs`, stdio, full-text sync, one diagnostic = first lexer/parser error, whole line underlined; `tests/lsp.sh`; VS Code client `editors/vscode/extension.js` + `npm install`). Next: Blockliner pack, then richer LSP (all errors, undefined names, never-ran `when`, hover, completion).
+3. **Tooling:** basic LSP done (0.8.0); the grammar currently can't colour calls like `add 2 3`.
 4. **Blockliner language pack** (see below).
 5. **Later:** multiple rules with the same name = "any of them" (inference).
 

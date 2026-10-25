@@ -402,7 +402,7 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 
 - [x] Interactive mode: type Lucode and see results line by line
 - [x] VS Code extension: syntax highlighting for `.luc` files (`editors/vscode`, with icon)
-- [ ] Language server: errors shown while typing, in any editor that supports LSP
+- [x] Language server: `lucode --lsp` shows the first parse error while typing, in any editor that supports LSP (VS Code client in `editors/vscode`). Not yet: run-time/static warnings, hover, completion
 - [x] Prebuilt downloads for Linux, Windows and macOS (no .NET install needed): pushing a `v*` tag builds them on GitHub (see Releases)
 
 ### Visual programming

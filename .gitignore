@@ -4,3 +4,4 @@ build/
 *.user
 .vs/
 .vscode/
+node_modules/

@@ -1,6 +1,6 @@
 using Lucode;
 
-const string Version = "0.7.3";
+const string Version = "0.8.0";
 
 if (args.Length == 0)
 {
@@ -14,6 +14,7 @@ if (args[0] is "-h" or "--help")
     Console.WriteLine();
     Console.WriteLine("Usage: lucode [file.luc]");
     Console.WriteLine("       lucode            start an interactive prompt");
+    Console.WriteLine("       lucode --lsp      language server for editors (talks over stdin/stdout)");
     return 0;
 }
 
@@ -22,6 +23,9 @@ if (args[0] is "-v" or "--version")
     Console.WriteLine($"Lucode {Version}");
     return 0;
 }
+
+if (args[0] == "--lsp")
+    return LanguageServer.Run(Version);
 
 string path = args[0];
 if (!File.Exists(path))
