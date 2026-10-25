@@ -43,7 +43,9 @@ Everything else is kept deliberately plain:
 
 ## Getting started
 
-Lucode runs on Linux, Windows and macOS. You need the **.NET 8 SDK**:
+Lucode runs on Linux, Windows and macOS. The easy way: download your system's build from the
+[Releases page](https://github.com/somore100/Lucode/releases), unpack it and run `lucode file.luc`
+(no .NET needed). To build from source you need the **.NET 8 SDK**:
 
 | System  | Install                                                        |
 |---------|----------------------------------------------------------------|
@@ -401,7 +403,7 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 - [x] Interactive mode: type Lucode and see results line by line
 - [x] VS Code extension: syntax highlighting for `.luc` files (`editors/vscode`, with icon)
 - [ ] Language server: errors shown while typing, in any editor that supports LSP
-- [ ] Prebuilt downloads for Linux, Windows and macOS (no .NET install needed)
+- [x] Prebuilt downloads for Linux, Windows and macOS (no .NET install needed): pushing a `v*` tag builds them on GitHub (see Releases)
 
 ### Visual programming
 

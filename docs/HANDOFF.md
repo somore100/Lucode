@@ -137,7 +137,7 @@ No NuGet packages are used. If NuGet is unreachable, restore offline:
 ## Next steps, in order
 
 1. ~~`when`, `why`, loops, commands, REPL, VS Code grammar~~ — **done**.
-2. ~~Lists~~ — **done (0.6.0)**. ~~Text operations, sorting, `ask`~~ — **done (0.7.0)**. Done in 0.7.1: trim, find, replace, `sort ... descending`. Done in 0.7.2: `read`. Done in 0.7.3: `write`. Next: prebuilt downloads (GitHub Actions release workflow), then LSP.
+2. ~~Lists~~ — **done (0.6.0)**. ~~Text operations, sorting, `ask`~~ — **done (0.7.0)**. Done in 0.7.1: trim, find, replace, `sort ... descending`. Done in 0.7.2: `read`. Done in 0.7.3: `write`. Done in 0.7.3 (untested until first tag): `.github/workflows/release.yml` runs tests on every push and, on a `v*` tag, publishes self-contained single-file builds (linux-x64/arm64, win-x64, osx-x64/arm64) to a GitHub release. Next: LSP.
 3. **Tooling:** later an LSP; the grammar currently can't colour calls like `add 2 3`.
 4. **Blockliner language pack** (see below).
 5. **Later:** multiple rules with the same name = "any of them" (inference).
