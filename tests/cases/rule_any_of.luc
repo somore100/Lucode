@@ -1,0 +1,7 @@
+has_key = false
+is_owner = false
+rule can_enter = has_key
+rule can_enter = is_owner
+print can_enter
+is_owner = true
+print can_enter

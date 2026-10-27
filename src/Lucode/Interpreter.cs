@@ -9,7 +9,8 @@ namespace Lucode;
 public sealed class Interpreter
 {
     private readonly Dictionary<string, object> _variables = new();
-    private readonly Dictionary<string, RuleStmt> _rules = new();
+    // Several rules with one name are kept in the order they were written: "any of them".
+    private readonly Dictionary<string, List<RuleStmt>> _rules = new();
 
     // Rules currently being worked out, in order, so a rule that depends on itself is caught.
     private readonly List<string> _evaluating = new();
@@ -150,11 +151,14 @@ public sealed class Interpreter
                 if (_variables.ContainsKey(rule.Name))
                     throw new LucodeError(rule.Line,
                         $"'{rule.Name}' already holds a value, so it can't also be a rule. Pick another name.");
-                if (_rules.TryGetValue(rule.Name, out var earlier))
+                if (!_rules.TryGetValue(rule.Name, out var alternatives))
+                    _rules[rule.Name] = alternatives = new List<RuleStmt>();
+                // The same line twice is almost surely a copy-paste slip; a different formula is another way to get there.
+                if (alternatives.FirstOrDefault(other => other.Signature == rule.Signature) is { } same)
                     throw new LucodeError(rule.Line,
-                        $"Rule '{rule.Name}' is already defined on line {earlier.Line}.");
+                        $"Rule '{rule.Name}' is already defined on line {same.Line}.");
                 // Nothing is calculated yet: the formula is stored and worked out each time it's used.
-                _rules[rule.Name] = rule;
+                alternatives.Add(rule);
                 break;
 
             case PrintStmt print:
@@ -226,7 +230,7 @@ public sealed class Interpreter
     {
         if (_rules.TryGetValue(name, out var existingRule))
             throw new LucodeError(line,
-                $"'{name}' is a rule (line {existingRule.Line}), so it can't be set directly. " +
+                $"'{name}' is a rule (line {existingRule[0].Line}), so it can't be set directly. " +
                 "Change the values it depends on instead.");
         if (_locals is not null)
         {
@@ -267,14 +271,58 @@ public sealed class Interpreter
     {
         var value = Evaluate(target); // also reports unknown names and rule loops
         string text = $"{target.Name} is {Show(value)}";
-        if (_variables.ContainsKey(target.Name) || !_rules.TryGetValue(target.Name, out var rule))
+        if (_variables.ContainsKey(target.Name) || !_rules.TryGetValue(target.Name, out var lines))
             return text;
 
+        if (lines.Count > 1)
+        {
+            var winner = Winner(lines);
+            if (winner is not null)
+                return $"{text}{Because(winner)} (rule on line {winner.Line})";
+
+            var reasons = lines.Select(line => $"line {line.Line}{Because(line, ": ")}");
+            return $"{text}, because none of its {lines.Count} rules held ({string.Join("; ", reasons)})";
+        }
+
         var deciders = new List<(string Name, object Value)>();
-        Collect(rule.Value, deciders);
+        Collect(lines[0].Value, deciders);
         return deciders.Count == 0
             ? text
             : $"{text}, because {string.Join(" and ", deciders.Select(d => $"{d.Name} is {Show(d.Value)}"))}";
+    }
+
+    /// <summary>The ", because x is 1 and y is 2" part for one rule line (its opening word can be changed).</summary>
+    private string Because(RuleStmt line, string opening = ", because ")
+    {
+        var deciders = new List<(string Name, object Value)>();
+        try
+        {
+            Collect(line.Value, deciders);
+        }
+        catch (MissingValueError missing)
+        {
+            return $"{opening}{missing.Name} has no value yet";
+        }
+        return deciders.Count == 0
+            ? ""
+            : opening + string.Join(" and ", deciders.Select(d => $"{d.Name} is {Show(d.Value)}"));
+    }
+
+    /// <summary>The first line of a same-name rule that isn't false and can be worked out, or null if none.</summary>
+    private RuleStmt? Winner(List<RuleStmt> lines)
+    {
+        foreach (var line in lines)
+        {
+            try
+            {
+                if (Evaluate(line.Value) is not false) return line;
+            }
+            catch (MissingValueError)
+            {
+                // Not worked out yet: the next line may still do it.
+            }
+        }
+        return null;
     }
 
     /// <summary>
@@ -292,8 +340,22 @@ public sealed class Interpreter
                     if (!found.Any(f => f.Name == variable.Name))
                         found.Add((variable.Name, value));
                 }
-                else if (_rules.TryGetValue(variable.Name, out var rule))
-                    Collect(rule.Value, found);
+                else if (_rules.TryGetValue(variable.Name, out var lines))
+                {
+                    // With several lines only the one that won (or, if none did, every line) explains the value.
+                    var used = lines.Count == 1 ? lines : Winner(lines) is { } won ? new List<RuleStmt> { won } : lines;
+                    foreach (var line in used)
+                    {
+                        try
+                        {
+                            Collect(line.Value, found);
+                        }
+                        catch (MissingValueError)
+                        {
+                            // A line that couldn't be worked out has nothing to add.
+                        }
+                    }
+                }
                 break;
 
             case UnaryExpr unary:
@@ -478,28 +540,52 @@ public sealed class Interpreter
         if (_variables.TryGetValue(variable.Name, out var value))
             return value;
 
-        if (_rules.TryGetValue(variable.Name, out var rule))
-            return EvaluateRule(rule, variable.Line);
+        if (_rules.TryGetValue(variable.Name, out var lines))
+            return EvaluateRule(variable.Name, lines, variable.Line);
 
         string hint = Suggest.Hint(variable.Name, _variables.Keys.Concat(_rules.Keys));
         throw new MissingValueError(variable.Line, variable.Name, $"'{variable.Name}' has no value yet.{hint}");
     }
 
-    private object EvaluateRule(RuleStmt rule, int usedOnLine)
+    private object EvaluateRule(string name, List<RuleStmt> lines, int usedOnLine)
     {
-        if (_evaluating.Contains(rule.Name))
+        if (_evaluating.Contains(name))
         {
-            var loop = _evaluating.SkipWhile(name => name != rule.Name).Append(rule.Name);
+            var loop = _evaluating.SkipWhile(other => other != name).Append(name);
             throw new LucodeError(usedOnLine,
-                $"Rule '{rule.Name}' depends on itself: {string.Join(" -> ", loop)}.");
+                $"Rule '{name}' depends on itself: {string.Join(" -> ", loop)}.");
         }
 
-        _evaluating.Add(rule.Name);
+        _evaluating.Add(name);
         var savedLocals = _locals;
         _locals = null; // a rule always looks at the top-level values, never a command's own
         try
         {
-            return Evaluate(rule.Value);
+            if (lines.Count == 1)
+                return Evaluate(lines[0].Value);
+
+            // Several lines, "any of them": a line that is false or can't be worked out yet passes to the next.
+            bool sawFalse = false;
+            MissingValueError? firstMissing = null;
+            foreach (var line in lines)
+            {
+                try
+                {
+                    var value = Evaluate(line.Value);
+                    if (value is false)
+                    {
+                        sawFalse = true;
+                        continue;
+                    }
+                    return value;
+                }
+                catch (MissingValueError missing)
+                {
+                    firstMissing ??= missing;
+                }
+            }
+            if (sawFalse) return false;
+            throw firstMissing!;
         }
         finally
         {

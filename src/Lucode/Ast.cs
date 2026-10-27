@@ -40,7 +40,7 @@ public abstract record Stmt(int Line);
 public sealed record AssignStmt(string Name, Expr Value, int Line) : Stmt(Line);
 
 /// <summary>"rule name = expr": the expression is kept and recalculated every time the name is used.</summary>
-public sealed record RuleStmt(string Name, Expr Value, int Line) : Stmt(Line);
+public sealed record RuleStmt(string Name, Expr Value, int Line, string Signature = "") : Stmt(Line);
 
 public sealed record PrintStmt(Expr Value, int Line) : Stmt(Line);
 

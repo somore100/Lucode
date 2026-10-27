@@ -331,9 +331,12 @@ public sealed class Parser
         if (Check(TokenType.Newline))
             throw Error(name, $"Rule '{name.Text}' needs a formula after the '='.");
 
+        int first = _pos;
         var value = Expression();
+        // The formula's tokens as text, so the interpreter can tell two identical rule lines apart from different ones.
+        string signature = string.Join(" ", _tokens.Skip(first).Take(_pos - first).Select(t => $"{t.Type}:{t.Text}"));
         EndOfLine($"rule '{name.Text}'");
-        return new RuleStmt(name.Text, value, ruleToken.Line);
+        return new RuleStmt(name.Text, value, ruleToken.Line, signature);
     }
 
     private Stmt Assignment()

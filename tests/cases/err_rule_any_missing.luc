@@ -1,0 +1,3 @@
+rule ok = a
+rule ok = b
+print ok

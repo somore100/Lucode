@@ -1,0 +1,6 @@
+base = 100
+rule price = base - discount
+rule price = base
+print price
+discount = 30
+print price

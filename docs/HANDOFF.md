@@ -1,7 +1,7 @@
 # Lucode — Handoff
 
 Paste or attach this file at the start of a new chat to continue the project.
-Last updated: 2026-10-20, version 0.8.0 (text words incl. trim/find/replace, `sort` (+ `descending`) and `ask` on top of lists, `why`, loops, commands, REPL, VS Code grammar + icon).
+Last updated: 2026-10-20, version 0.9.0 (text words incl. trim/find/replace, `sort` (+ `descending`) and `ask` on top of lists, `why`, loops, commands, REPL, VS Code grammar + icon).
 
 ## What Lucode is
 
@@ -50,6 +50,7 @@ rule: *keep it small and coherent; add a feature only when it solves a real prob
 | Text words | Word-style prefix, same feel as `item 2 of xs`, no parentheses or commas: `upper x`, `lower x`, `trim x`, `number x`, `find a in t` (1-based, 0 = none), `replace a with b in t` (a not empty), `ask "prompt"`, `split text by sep`, `join items with sep`. One `BuiltinExpr(word, args)` node; the parser's `Builtins` table lists the little words between values (`by`, `with`, `in`; `replace` has two). Each slot reads **one unary value**, so `upper a + b` is `(upper a) + b`; use `(...)` for more. All are contextual: only special when a value (number, text, `(`, `list`, true/false or a name other than `of`/`in`) follows, so `upper = 1` and `print upper` still work. `split` with an empty separator gives letters. `join` formats any items. `number` rejects anything that isn't a finite number. |
 | Sort | `sort xs` is a statement like `add`/`remove` (assigns a new list, so `when` fires and commands stay local). All numbers (ascending) or all text (case-insensitive, stable); mixed or other kinds is an error. No expression form and `sort xs descending` reverses it. |
 | Input | `name = ask "prompt?"`: writes the prompt plus a space (no newline), reads one line from stdin, gives text (use `number ask ...` for math). End of input is an error. `Interpreter` takes an optional `TextReader`. `ask` inside a rule or `when` condition would prompt on every read (not guarded). Test cases can ship `name.in`; `run.sh` feeds it (otherwise `/dev/null`). `read "path"` returns a whole file as text (0.7.2; builtin, relative to the working directory, missing file is an error). `write text to "path"` (0.7.3) replaces the file with exactly that text (non-text values formatted like `print`; no automatic newline; missing folder is an error). Not yet: appending, reading line by line. |
+| Same-name rules | 0.9.0. Several `rule x = ...` lines are tried top to bottom (`_rules` maps name -> list). A line that is `false` or hits a `MissingValueError` passes to the next; the first line giving `true` or any non-bool wins. None won: `false` if any line was false, else the first missing-value error. One line behaves exactly as before. Identical lines (same token `Signature`) are an error. `why` says which line won (`..., because is_owner is true (rule on line 4)`), or lists each line's reason when none held. Rules are for any value, not just true/false. |
 | Independence | Lucode is standalone (CLI, later VS Code). Blockliner is an add-on via a language pack, never a dependency. |
 
 ## Rules (v0.2) — exact semantics
@@ -62,7 +63,7 @@ rule can_enter = has_key and is_owner
   name is read ("recalculate when read", pull-based).
 - Rules can reference rules and can be defined before their inputs exist.
 - Errors: assigning to a rule name; making a rule with an existing variable's
-  name; defining the same rule twice (reserved for a future "either rule works"
+  name; defining the exact same rule line twice (a different formula under the same name is now "any of them", see below; 0.9.0)
   meaning); cycles (`Rule 'a' depends on itself: a -> b -> a.`, reported on the
   line where the loop closes).
 
@@ -141,7 +142,7 @@ No NuGet packages are used. If NuGet is unreachable, restore offline:
 2. ~~Lists~~ — **done (0.6.0)**. ~~Text operations, sorting, `ask`~~ — **done (0.7.0)**. Done in 0.7.1: trim, find, replace, `sort ... descending`. Done in 0.7.2: `read`. Done in 0.7.3: `write`. Done in 0.7.3 (untested until first tag): `.github/workflows/release.yml` runs tests on every push and, on a `v*` tag, publishes self-contained single-file builds (linux-x64/arm64, win-x64, osx-x64/arm64) to a GitHub release. Done in 0.8.0 (untested until run): `lucode --lsp` (`LanguageServer.cs`, stdio, full-text sync, one diagnostic = first lexer/parser error, whole line underlined; `tests/lsp.sh`; VS Code client `editors/vscode/extension.js` + `npm install`). Next: Blockliner pack, then richer LSP (all errors, undefined names, never-ran `when`, hover, completion).
 3. **Tooling:** basic LSP done (0.8.0); the grammar currently can't colour calls like `add 2 3`.
 4. **Blockliner language pack** (see below).
-5. **Later:** multiple rules with the same name = "any of them" (inference).
+5. ~~Multiple rules with the same name = "any of them"~~ — **done (0.9.0)**, untested until run.
 
 Ideas not decided: bare expressions echoing their value in the REPL; letting
 commands read/write top-level variables (raises the question of `when` firing

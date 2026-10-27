@@ -1,0 +1,1 @@
+ok is false, because none of its 2 rules held (line 3: a is false; line 4: b is false)

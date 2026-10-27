@@ -107,6 +107,22 @@ discount = 400        # final_price and can_buy follow automatically
 - A name is either a variable or a rule, never both.
 - A rule that depends on itself (`a` uses `b`, `b` uses `a`) is reported as an error.
 
+**Several rules with one name** mean "any of these will do". They are tried
+top to bottom: a line that is false, or that needs a value that doesn't exist
+yet, hands over to the next one. The first line that gives something else wins.
+
+```
+rule can_enter = has_key
+rule can_enter = is_owner        # true if either one is true
+
+rule price = base - discount     # no discount yet? ...
+rule price = base                # ... then this line gives the price
+```
+
+If no line wins, true/false rules are `false`; otherwise you get the usual
+"has no value yet" error. Writing the very same line twice is an error (that is
+almost always a copy-paste slip), and `why` says which line won.
+
 **Variable or rule?** Use a variable for things that change step by step
 (counters, totals, scores). Use a rule for things that are *defined by* other
 values (permissions, prices after discount, "is the machine ready").
@@ -413,7 +429,7 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 
 ### Later ideas
 
-- [ ] Several rules with the same name meaning "any of these is enough"
+- [x] Several rules with the same name meaning "any of these is enough" (0.9.0)
       (rule-based reasoning)
 - [ ] Writing files
 

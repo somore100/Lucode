@@ -1,6 +1,6 @@
 using Lucode;
 
-const string Version = "0.8.0";
+const string Version = "0.9.0";
 
 if (args.Length == 0)
 {
