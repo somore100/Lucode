@@ -1,7 +1,7 @@
 # Lucode — Handoff
 
 Paste or attach this file at the start of a new chat to continue the project.
-Last updated: 2026-10-20, version 0.9.0 (text words incl. trim/find/replace, `sort` (+ `descending`) and `ask` on top of lists, `why`, loops, commands, REPL, VS Code grammar + icon).
+Last updated: 2026-10-20, version 0.10.0 (text words incl. trim/find/replace, `sort` (+ `descending`) and `ask` on top of lists, `why`, loops, commands, REPL, VS Code grammar + icon).
 
 ## What Lucode is
 
@@ -51,6 +51,7 @@ rule: *keep it small and coherent; add a feature only when it solves a real prob
 | Sort | `sort xs` is a statement like `add`/`remove` (assigns a new list, so `when` fires and commands stay local). All numbers (ascending) or all text (case-insensitive, stable); mixed or other kinds is an error. No expression form and `sort xs descending` reverses it. |
 | Input | `name = ask "prompt?"`: writes the prompt plus a space (no newline), reads one line from stdin, gives text (use `number ask ...` for math). End of input is an error. `Interpreter` takes an optional `TextReader`. `ask` inside a rule or `when` condition would prompt on every read (not guarded). Test cases can ship `name.in`; `run.sh` feeds it (otherwise `/dev/null`). `read "path"` returns a whole file as text (0.7.2; builtin, relative to the working directory, missing file is an error). `write text to "path"` (0.7.3) replaces the file with exactly that text (non-text values formatted like `print`; no automatic newline; missing folder is an error). Not yet: appending, reading line by line. |
 | Same-name rules | 0.9.0. Several `rule x = ...` lines are tried top to bottom (`_rules` maps name -> list). A line that is `false` or hits a `MissingValueError` passes to the next; the first line giving `true` or any non-bool wins. None won: `false` if any line was false, else the first missing-value error. One line behaves exactly as before. Identical lines (same token `Signature`) are an error. `why` says which line won (`..., because is_owner is true (rule on line 4)`), or lists each line's reason when none held. Rules are for any value, not just true/false. |
+| Build | 0.10.0, untested until run. `lucode build file.luc [-o out]` (`Bundle.cs`) copies `Environment.ProcessPath` (needs the self-contained single-file lucode, not `dotnet lucode.dll`), appends `name\nsource` + 8-byte length + marker `LUCODEPK`, marks it executable and re-signs on macOS (`codesign -s -`). Parse errors stop the build. At startup `Bundle.ReadEmbedded()` looks for the marker at the end of the running exe and, if found, runs that program and ignores the command line. Same platform only (no cross-building). Source is embedded as text; later steps: bytecode (`.lucc`) so errors are found at build time and it runs faster. `tests/build.sh` (publishes, builds, runs; set `RID` off Linux x64) is part of CI. |
 | Independence | Lucode is standalone (CLI, later VS Code). Blockliner is an add-on via a language pack, never a dependency. |
 
 ## Rules (v0.2) — exact semantics
@@ -119,6 +120,7 @@ src/Lucode/
   LucodeError.cs  LucodeError(line, message); MissingValueError subclass;
                   Suggest.Hint() uses edit distance
                   (with swapped-letter support) for "Did you mean".
+  Bundle.cs       `lucode build`: standalone program = copy of lucode + embedded source (tests/build.sh).
   LanguageServer.cs  `lucode --lsp`: LSP over stdin/stdout, parse errors only (tests/lsp.sh).
   Repl.cs         Interactive prompt (see Decisions).
   Program.cs      `lucode [file.luc]` (no file = REPL), --help, --version. Errors go to stderr as

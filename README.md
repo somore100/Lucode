@@ -327,6 +327,20 @@ there (add `"\n"` yourself if you want a line break at the end). Numbers and
 lists are turned into text the same way `print` does. A folder that doesn't
 exist is an error.
 
+### Making a program: `lucode build`
+
+```
+lucode build hello.luc            # makes ./hello (hello.exe on Windows)
+lucode build hello.luc -o greet   # pick the name
+```
+
+The result is one file that runs by itself on the same kind of computer (same
+system and chip) and needs no Lucode or .NET. It is a copy of `lucode` with
+your program inside, so rules, `when` and `why` work exactly as before. The
+program is checked first: if it has an error, nothing is built. Use the
+downloaded `lucode` from the Releases page; `dotnet lucode.dll build` can't do
+this. To make programs for another system, build on that system.
+
 ### Trying things out: the prompt
 
 Run `lucode` with no file to get an interactive prompt. Everything you define
@@ -420,6 +434,8 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 - [x] VS Code extension: syntax highlighting for `.luc` files (`editors/vscode`, with icon)
 - [x] Language server: `lucode --lsp` shows the first parse error while typing, in any editor that supports LSP (VS Code client in `editors/vscode`). Not yet: run-time/static warnings, hover, completion
 - [x] Prebuilt downloads for Linux, Windows and macOS (no .NET install needed): pushing a `v*` tag builds them on GitHub (see Releases)
+- [x] `lucode build`: turn a program into one standalone file (copy of lucode + your program)
+- [ ] Bytecode (`.lucc`): errors found at build time and faster runs
 
 ### Visual programming
 
