@@ -10,6 +10,9 @@ namespace Lucode;
 /// marker. When a lucode starts and finds that marker at the end of itself, it runs the
 /// embedded program instead of reading the command line.
 /// </summary>
+/// <param name="Format">null for a plain executable, otherwise a package kind such as "deb".</param>
+public sealed record BuildOptions(string Input, string? Output, string? Format, string? Version, string? Maintainer, string? Description);
+
 public static class Bundle
 {
     private static readonly byte[] Marker = Encoding.ASCII.GetBytes("LUCODEPK"); // 8 bytes
@@ -48,9 +51,10 @@ public static class Bundle
         }
     }
 
-    /// <summary>Checks the program, then writes the standalone copy. Returns the exit code.</summary>
-    public static int Build(string input, string? output)
+    /// <summary>Checks the program, then writes the standalone copy or a package around it. Returns the exit code.</summary>
+    public static int Build(BuildOptions options)
     {
+        string input = options.Input;
         if (!File.Exists(input))
         {
             Console.Error.WriteLine($"Can't find the file '{input}'.");
@@ -74,6 +78,27 @@ public static class Bundle
             return 1;
         }
 
+        try
+        {
+            if (options.Format is null)
+                return BuildExecutable(self, input, name, source, options.Output);
+
+            return options.Format switch
+            {
+                "deb" => BuildPackage(self, input, name, source, options, DebPackage.Create),
+                "rpm" => BuildPackage(self, input, name, source, options, RpmPackage.Create),
+                _ => throw new InvalidOperationException($"Unknown format {options.Format}"),
+            };
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"Can't write the output: {e.Message}");
+            return 1;
+        }
+    }
+
+    private static int BuildExecutable(string self, string input, string name, string source, string? output)
+    {
         output ??= OperatingSystem.IsWindows()
             ? Path.ChangeExtension(input, ".exe")
             : Path.ChangeExtension(input, null);
@@ -83,33 +108,56 @@ public static class Bundle
             return 1;
         }
 
-        try
-        {
-            File.Copy(self, output, overwrite: true);
-            var payload = Encoding.UTF8.GetBytes(name + "\n" + source);
-            var length = new byte[8];
-            BinaryPrimitives.WriteInt64LittleEndian(length, payload.Length);
-            using (var file = new FileStream(output, FileMode.Append, FileAccess.Write))
-            {
-                file.Write(payload);
-                file.Write(length);
-                file.Write(Marker);
-            }
-
-            if (!OperatingSystem.IsWindows())
-                File.SetUnixFileMode(output, File.GetUnixFileMode(output)
-                    | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
-            if (OperatingSystem.IsMacOS())
-                Sign(output);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            Console.Error.WriteLine($"Can't write '{output}': {e.Message}");
-            return 1;
-        }
-
+        WriteExecutable(self, output, name, source);
         Console.WriteLine($"Built {output}");
         return 0;
+    }
+
+    /// <summary>Builds the executable in a temporary place and hands it to a package maker.</summary>
+    private static int BuildPackage(string self, string input, string name, string source, BuildOptions options,
+        Func<PackageInfo, string?> create)
+    {
+        string temp = Path.Combine(Path.GetTempPath(), "lucode-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(temp);
+        try
+        {
+            string exe = Path.Combine(temp, "program");
+            WriteExecutable(self, exe, name, source);
+            var info = new PackageInfo(
+                Path.GetFileNameWithoutExtension(input), exe, options.Output,
+                options.Version ?? "1.0", options.Maintainer, options.Description);
+            string? problem = create(info);
+            if (problem is not null)
+            {
+                Console.Error.WriteLine(problem);
+                return 1;
+            }
+            return 0;
+        }
+        finally
+        {
+            Directory.Delete(temp, recursive: true);
+        }
+    }
+
+    private static void WriteExecutable(string self, string output, string name, string source)
+    {
+        File.Copy(self, output, overwrite: true);
+        var payload = Encoding.UTF8.GetBytes(name + "\n" + source);
+        var length = new byte[8];
+        BinaryPrimitives.WriteInt64LittleEndian(length, payload.Length);
+        using (var file = new FileStream(output, FileMode.Append, FileAccess.Write))
+        {
+            file.Write(payload);
+            file.Write(length);
+            file.Write(Marker);
+        }
+
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(output, File.GetUnixFileMode(output)
+                | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+        if (OperatingSystem.IsMacOS())
+            Sign(output);
     }
 
     /// <summary>macOS refuses to run a program whose signature no longer matches, so sign the copy again.</summary>

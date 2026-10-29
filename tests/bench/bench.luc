@@ -1,0 +1,21 @@
+# A rough speed check: loops, a command, a list, and a rule.
+to square x
+    give x * x
+
+total = 0
+i = 0
+while i < 300000
+    total = total + square i % 7
+    i = i + 1
+print total
+
+nums = list
+repeat 20000 times
+    add i to nums
+print count of nums
+
+rule doubled = total * 2
+n = 0
+repeat 100000 times
+    n = n + doubled % 3
+print n

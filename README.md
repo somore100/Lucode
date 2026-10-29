@@ -334,7 +334,12 @@ lucode build hello.luc            # makes ./hello (hello.exe on Windows)
 lucode build hello.luc -o greet   # pick the name
 ```
 
-The result is one file that runs by itself on the same kind of computer (same
+Add `--rpm` for Fedora (`sudo dnf install ./hello-1.0-1.x86_64.rpm`; needs `sudo dnf install rpm-build` once)
+or `--deb` for a Linux package people can install with `sudo apt install ./hello_1.0_amd64.deb`
+(it puts the program in `/usr/bin`). You can set `--version`, `--maintainer` and `--description`.
+A `.deb` has to be made on Linux.
+
+The plain result is one file that runs by itself on the same kind of computer (same
 system and chip) and needs no Lucode or .NET. It is a copy of `lucode` with
 your program inside, so rules, `when` and `why` work exactly as before. The
 program is checked first: if it has an error, nothing is built. Use the
@@ -435,6 +440,8 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 - [x] Language server: `lucode --lsp` shows the first parse error while typing, in any editor that supports LSP (VS Code client in `editors/vscode`). Not yet: run-time/static warnings, hover, completion
 - [x] Prebuilt downloads for Linux, Windows and macOS (no .NET install needed): pushing a `v*` tag builds them on GitHub (see Releases)
 - [x] `lucode build`: turn a program into one standalone file (copy of lucode + your program)
+- [x] `lucode build --deb` / `--rpm`: Debian/Ubuntu and Fedora packages (0.11.0 / 0.12.0)
+- [ ] More package formats: AppImage, then Windows installer, then macOS `.app`/`.dmg`; later the same for lucode itself
 - [ ] Bytecode (`.lucc`): errors found at build time and faster runs
 
 ### Visual programming

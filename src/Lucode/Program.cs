@@ -1,6 +1,6 @@
 using Lucode;
 
-const string Version = "0.10.0";
+const string Version = "0.12.0";
 
 // A program built with 'lucode build' carries its own text: run that and ignore the command line.
 if (Bundle.ReadEmbedded() is { } embedded)
@@ -18,7 +18,7 @@ if (args[0] is "-h" or "--help")
     Console.WriteLine();
     Console.WriteLine("Usage: lucode [file.luc]");
     Console.WriteLine("       lucode            start an interactive prompt");
-    Console.WriteLine("       lucode build file.luc [-o name]   make a standalone program");
+    Console.WriteLine("       lucode build file.luc [-o name] [--deb|--rpm]   make a standalone program or a package");
     Console.WriteLine("       lucode --lsp      language server for editors (talks over stdin/stdout)");
     return 0;
 }
@@ -31,23 +31,48 @@ if (args[0] is "-v" or "--version")
 
 if (args[0] == "build")
 {
-    string? input = null, output = null;
+    const string usage = "Usage: lucode build file.luc [-o name] [--deb | --rpm] [--version 1.0] [--maintainer \"Name <mail>\"] [--description \"text\"]";
+    string? input = null, output = null, format = null, version = null, maintainer = null, description = null;
     for (int i = 1; i < args.Length; i++)
     {
-        if (args[i] is "-o" or "--output" && i + 1 < args.Length) output = args[++i];
-        else if (input is null) input = args[i];
-        else
+        switch (args[i])
         {
-            Console.Error.WriteLine("Usage: lucode build file.luc [-o name]");
-            return 1;
+            case "-o" or "--output" when i + 1 < args.Length: output = args[++i]; break;
+            case "--version" when i + 1 < args.Length: version = args[++i]; break;
+            case "--maintainer" when i + 1 < args.Length: maintainer = args[++i]; break;
+            case "--description" when i + 1 < args.Length: description = args[++i]; break;
+            case "--deb" or "--rpm":
+                if (format is not null)
+                {
+                    Console.Error.WriteLine("Pick one package kind per build: --deb or --rpm.");
+                    return 1;
+                }
+                format = args[i][2..];
+                break;
+            case var other when other.StartsWith('-'):
+                Console.Error.WriteLine($"Unknown option '{other}'.\n{usage}");
+                return 1;
+            default:
+                if (input is not null)
+                {
+                    Console.Error.WriteLine(usage);
+                    return 1;
+                }
+                input = args[i];
+                break;
         }
     }
     if (input is null)
     {
-        Console.Error.WriteLine("Usage: lucode build file.luc [-o name]");
+        Console.Error.WriteLine(usage);
         return 1;
     }
-    return Bundle.Build(input, output);
+    if (format is null && (version ?? maintainer ?? description) is not null)
+    {
+        Console.Error.WriteLine("--version, --maintainer and --description only apply to packages, like --deb or --rpm.");
+        return 1;
+    }
+    return Bundle.Build(new BuildOptions(input, output, format, version, maintainer, description));
 }
 
 if (args[0] == "--lsp")

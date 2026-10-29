@@ -27,11 +27,10 @@ public sealed class Interpreter
     private int _callDepth;
     private const int MaxCallDepth = 200;
 
-    /// <summary>Thrown by 'give' to leave a command early with its value.</summary>
-    private sealed class GiveSignal(object value) : Exception
-    {
-        public object Value { get; } = value;
-    }
+    // 'give' sets these and every block stops running statements until the command call picks the value up.
+    // (An exception here was far too slow: every call that gave a value paid for one.)
+    private bool _giving;
+    private object? _given;
 
     private readonly TextWriter _output;
     private readonly TextReader _input;
@@ -70,6 +69,16 @@ public sealed class Interpreter
 
     // ----- Statements -----
 
+    /// <summary>Runs a block's statements in order, stopping early once a 'give' has happened.</summary>
+    private void RunBlock(List<Stmt> body)
+    {
+        foreach (var statement in body)
+        {
+            Execute(statement);
+            if (_giving) return;
+        }
+    }
+
     private void Execute(Stmt statement)
     {
         switch (statement)
@@ -91,8 +100,8 @@ public sealed class Interpreter
                 foreach (var thing in things)
                 {
                     Assign(each.Name, thing, each.Line);
-                    foreach (var inner in each.Body)
-                        Execute(inner);
+                    RunBlock(each.Body);
+                    if (_giving) break;
                 }
                 break;
 
@@ -141,7 +150,10 @@ public sealed class Interpreter
                 break;
 
             case GiveStmt give:
-                throw new GiveSignal(Evaluate(give.Value));
+                // Worked out first: the value may call other commands, which finish their own 'give'.
+                _given = Evaluate(give.Value);
+                _giving = true;
+                break;
 
             case ExprStmt call:
                 Call((CallExpr)call.Value);
@@ -176,9 +188,8 @@ public sealed class Interpreter
                 if (count > MaxLoopRuns)
                     throw new LucodeError(repeat.Line,
                         $"'repeat' can't run more than {MaxLoopRuns} times, but got {Format(count)}.");
-                for (double i = 0; i < count; i++)
-                    foreach (var inner in repeat.Body)
-                        Execute(inner);
+                for (double i = 0; i < count && !_giving; i++)
+                    RunBlock(repeat.Body);
                 break;
 
             case WhileStmt loop:
@@ -192,8 +203,8 @@ public sealed class Interpreter
                     if (runs >= MaxLoopRuns)
                         throw new LucodeError(loop.Line,
                             $"'while' ran {MaxLoopRuns} times in a row without stopping. Is the condition ever false?");
-                    foreach (var inner in loop.Body)
-                        Execute(inner);
+                    RunBlock(loop.Body);
+                    if (_giving) break;
                 }
                 break;
 
@@ -209,8 +220,7 @@ public sealed class Interpreter
 
                 var branch = passed ? ifStmt.Then : ifStmt.Else;
                 if (branch is not null)
-                    foreach (var inner in branch)
-                        Execute(inner);
+                    RunBlock(branch);
                 break;
 
             case WhenStmt whenStmt:
@@ -517,16 +527,15 @@ public sealed class Interpreter
         _callDepth++;
         try
         {
-            foreach (var statement in command.Body)
-                Execute(statement);
-            return null;
-        }
-        catch (GiveSignal given)
-        {
-            return given.Value;
+            RunBlock(command.Body);
+            if (!_giving) return null;
+            var value = _given;
+            _given = null;
+            return value;
         }
         finally
         {
+            _giving = false;
             _locals = saved;
             _callDepth--;
         }
