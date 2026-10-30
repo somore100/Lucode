@@ -68,5 +68,15 @@ else
     echo "note: rpmbuild/rpm2cpio/cpio not all found, skipped the .rpm check"
 fi
 
+# An AppImage needs appimagetool; run the result without FUSE.
+if command -v appimagetool >/dev/null; then
+    "$lucode" build "$tmp/hello.luc" --appimage -o "$tmp/hello.AppImage" >/dev/null \
+        || { echo "FAIL: appimage build"; fail=1; }
+    actual=$(echo Eve | APPIMAGE_EXTRACT_AND_RUN=1 "$tmp/hello.AppImage" 2>&1)
+    [ "$actual" == "Name? Hello, Eve" ] || { echo "FAIL: AppImage printed: $actual"; fail=1; }
+else
+    echo "note: appimagetool not found, skipped the AppImage check"
+fi
+
 [ "$fail" -eq 0 ] && echo "build: passed"
 exit $fail

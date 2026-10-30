@@ -20,6 +20,9 @@ jobs:
       - run: ./tests/repl.sh
       - run: SKIP_BUILD=1 ./tests/lsp.sh
       - run: sudo apt-get install -y rpm cpio
+      - run: |
+          sudo curl -fsSL -o /usr/local/bin/appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          sudo chmod +x /usr/local/bin/appimagetool
       - run: ./tests/build.sh
 
   release:

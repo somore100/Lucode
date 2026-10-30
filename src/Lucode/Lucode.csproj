@@ -7,7 +7,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>lucode</AssemblyName>
     <RootNamespace>Lucode</RootNamespace>
-    <Version>0.12.0</Version>
+    <Version>0.13.0</Version>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The picture every AppImage needs; it is the same logo the VS Code extension uses. -->
+    <EmbeddedResource Include="../../editors/vscode/icon.png" LogicalName="icon.png" />
+  </ItemGroup>
 
 </Project>

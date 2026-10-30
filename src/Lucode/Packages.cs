@@ -248,3 +248,96 @@ public static class RpmPackage
         return null;
     }
 }
+
+/// <summary>
+/// An AppImage: one file that runs on most Linux systems. Lucode lays out the folder and
+/// `appimagetool` (github.com/AppImage/appimagetool) packs it.
+/// </summary>
+public static class AppImagePackage
+{
+    /// <summary>Writes the package. Returns an error message, or null when it worked.</summary>
+    public static string? Create(PackageInfo info)
+    {
+        if (!OperatingSystem.IsLinux())
+            return "An AppImage can only be made on Linux, because it needs a Linux lucode.";
+
+        string? arch = RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X64 => "x86_64",
+            Architecture.Arm64 => "aarch64",
+            _ => null,
+        };
+        if (arch is null)
+            return $"An AppImage for {RuntimeInformation.ProcessArchitecture} isn't supported (only x86_64 and aarch64).";
+
+        string name = Regex.Replace(info.Name.ToLowerInvariant(), "[^a-z0-9._-]", "-").Trim('-', '.', '_');
+        if (name.Length < 2)
+            return $"'{info.Name}' can't be turned into a program name (needs two or more letters or digits).";
+
+        string temp = Path.GetDirectoryName(info.Executable)!;
+        string appDir = Path.Combine(temp, "AppDir");
+        Directory.CreateDirectory(Path.Combine(appDir, "usr", "bin"));
+        string installed = Path.Combine(appDir, "usr", "bin", name);
+        File.Copy(info.Executable, installed);
+        File.SetUnixFileMode(installed, (UnixFileMode)0b111_101_101);
+
+        // AppRun is what the AppImage starts: it just runs the program with the same arguments.
+        string appRun = Path.Combine(appDir, "AppRun");
+        File.WriteAllText(appRun,
+            "#!/bin/sh\n" +
+            "HERE=\"$(dirname \"$(readlink -f \"$0\")\")\"\n" +
+            "exec \"$HERE/usr/bin/" + name + "\" \"$@\"\n");
+        File.SetUnixFileMode(appRun, (UnixFileMode)0b111_101_101);
+
+        string comment = string.IsNullOrWhiteSpace(info.Description)
+            ? name + ", a program written in Lucode"
+            : info.Description.ReplaceLineEndings(" ").Trim();
+        File.WriteAllText(Path.Combine(appDir, name + ".desktop"),
+            "[Desktop Entry]\nType=Application\n" +
+            "Name=" + name + "\nComment=" + comment + "\n" +
+            "Exec=" + name + "\nIcon=" + name + "\nCategories=Utility;\nTerminal=true\n" +
+            "X-AppImage-Version=" + info.Version + "\n");
+
+        using (var icon = typeof(AppImagePackage).Assembly.GetManifestResourceStream("icon.png")
+                          ?? throw new IOException("The built-in icon is missing."))
+        using (var file = File.Create(Path.Combine(appDir, name + ".png")))
+            icon.CopyTo(file);
+        File.Copy(Path.Combine(appDir, name + ".png"), Path.Combine(appDir, ".DirIcon"));
+
+        string output = Path.GetFullPath(info.Output ?? $"{name}-{arch}.AppImage");
+        string? tool = FindTool();
+        if (tool is null)
+            return "Making an AppImage needs 'appimagetool'. Download it from " +
+                   "https://github.com/AppImage/appimagetool/releases, make it executable (chmod +x) and put it on your PATH.";
+
+        var start = new System.Diagnostics.ProcessStartInfo(tool)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        start.ArgumentList.Add(appDir);
+        start.ArgumentList.Add(output);
+        start.Environment["ARCH"] = arch;
+        start.Environment["APPIMAGE_EXTRACT_AND_RUN"] = "1"; // appimagetool is itself an AppImage; this avoids needing FUSE
+
+        using var process = System.Diagnostics.Process.Start(start)!;
+        string text = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        if (process.ExitCode != 0)
+            return "appimagetool failed:\n" + text;
+
+        Console.WriteLine($"Built {output} (run it with ./{Path.GetFileName(output)})");
+        return null;
+    }
+
+    private static string? FindTool()
+    {
+        foreach (var name in new[] { "appimagetool", "appimagetool-x86_64.AppImage", "appimagetool-aarch64.AppImage" })
+            foreach (var folder in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string candidate = Path.Combine(folder, name);
+                if (File.Exists(candidate)) return candidate;
+            }
+        return null;
+    }
+}

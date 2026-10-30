@@ -334,6 +334,8 @@ lucode build hello.luc            # makes ./hello (hello.exe on Windows)
 lucode build hello.luc -o greet   # pick the name
 ```
 
+Add `--appimage` for one file that runs on most Linux systems (needs
+[`appimagetool`](https://github.com/AppImage/appimagetool/releases) on your PATH).
 Add `--rpm` for Fedora (`sudo dnf install ./hello-1.0-1.x86_64.rpm`; needs `sudo dnf install rpm-build` once)
 or `--deb` for a Linux package people can install with `sudo apt install ./hello_1.0_amd64.deb`
 (it puts the program in `/usr/bin`). You can set `--version`, `--maintainer` and `--description`.
@@ -441,7 +443,8 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 - [x] Prebuilt downloads for Linux, Windows and macOS (no .NET install needed): pushing a `v*` tag builds them on GitHub (see Releases)
 - [x] `lucode build`: turn a program into one standalone file (copy of lucode + your program)
 - [x] `lucode build --deb` / `--rpm`: Debian/Ubuntu and Fedora packages (0.11.0 / 0.12.0)
-- [ ] More package formats: AppImage, then Windows installer, then macOS `.app`/`.dmg`; later the same for lucode itself
+- [x] `lucode build --appimage` (0.13.0)
+- [ ] More package formats: then Windows installer, then macOS `.app`/`.dmg`; later the same for lucode itself
 - [ ] Bytecode (`.lucc`): errors found at build time and faster runs
 
 ### Visual programming
