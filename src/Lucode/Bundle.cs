@@ -88,6 +88,7 @@ public static class Bundle
                 "deb" => BuildPackage(self, input, name, source, options, DebPackage.Create),
                 "rpm" => BuildPackage(self, input, name, source, options, RpmPackage.Create),
                 "appimage" => BuildPackage(self, input, name, source, options, AppImagePackage.Create),
+                "installer" => BuildPackage(self, input, name, source, options, InstallerPackage.Create),
                 _ => throw new InvalidOperationException($"Unknown format {options.Format}"),
             };
         }

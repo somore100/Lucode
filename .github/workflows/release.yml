@@ -25,6 +25,25 @@ jobs:
           sudo chmod +x /usr/local/bin/appimagetool
       - run: ./tests/build.sh
 
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: choco install innosetup --no-progress -y
+      - name: Build, make an installer, install it silently and run the program
+        shell: pwsh
+        run: |
+          dotnet publish src/Lucode -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:InvariantGlobalization=true -o out --nologo
+          Set-Content hello.luc 'name = ask "Name?"', 'rule greeting = "Hello, " + name', 'print greeting'
+          .\out\lucode.exe build hello.luc -o hello.exe
+          if (("Sam" | .\hello.exe) -ne "Name? Hello, Sam") { throw "built program printed the wrong thing" }
+          .\out\lucode.exe build hello.luc --installer -o hello-setup.exe --version 2.1
+          Start-Process .\hello-setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/DIR=C:\hello-test','/TASKS=' -Wait
+          if (("Eve" | C:\hello-test\hello.exe) -ne "Name? Hello, Eve") { throw "installed program printed the wrong thing" }
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: test

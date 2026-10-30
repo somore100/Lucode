@@ -341,3 +341,114 @@ public static class AppImagePackage
         return null;
     }
 }
+
+/// <summary>
+/// A Windows installer (setup .exe) made with Inno Setup (jrsoftware.org/isinfo.php): Lucode writes
+/// the script and `ISCC.exe` compiles it. The installer puts the program in the current user's programs
+/// folder, adds a Start menu entry, can add it to PATH, and registers an uninstaller.
+/// </summary>
+public static class InstallerPackage
+{
+    /// <summary>Writes the installer. Returns an error message, or null when it worked.</summary>
+    public static string? Create(PackageInfo info)
+    {
+        if (!OperatingSystem.IsWindows())
+            return "A Windows installer can only be made on Windows, because it needs a Windows lucode.";
+
+        string? arch = RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X64 => "x64compatible",
+            Architecture.Arm64 => "arm64",
+            _ => null,
+        };
+        if (arch is null)
+            return $"An installer for {RuntimeInformation.ProcessArchitecture} isn't supported (only x64 and arm64).";
+
+        string name = Regex.Replace(info.Name.ToLowerInvariant(), "[^a-z0-9._-]", "-").Trim('-', '.', '_');
+        if (name.Length < 2)
+            return $"'{info.Name}' can't be turned into a program name (needs two or more letters or digits).";
+        if (!Regex.IsMatch(info.Version, "^[0-9][A-Za-z0-9._+~-]*$"))
+            return $"'{info.Version}' isn't a valid version. It must start with a digit, like 1.0 or 2.3.1.";
+
+        string? compiler = FindCompiler();
+        if (compiler is null)
+            return "Making a Windows installer needs Inno Setup. Install it with: winget install JRSoftware.InnoSetup";
+
+        string output = Path.GetFullPath(info.Output ?? $"{name}-{info.Version}-setup.exe");
+        string temp = Path.GetDirectoryName(info.Executable)!;
+        string scriptFile = Path.Combine(temp, name + ".iss");
+
+        // '{' starts a constant in Inno scripts, so it is doubled in free text.
+        static string Safe(string text) => text.ReplaceLineEndings(" ").Trim().Replace("{", "{{");
+        string script = string.Join("\r\n",
+            "[Setup]",
+            "AppName=" + name,
+            "AppVersion=" + info.Version,
+            info.Maintainer is null ? "" : "AppPublisher=" + Safe(info.Maintainer),
+            info.Description is null ? "" : "AppComments=" + Safe(info.Description),
+            "DefaultDirName={autopf}\\" + name,
+            "DefaultGroupName=" + name,
+            "PrivilegesRequired=lowest",
+            "ArchitecturesInstallIn64BitMode=" + arch,
+            "ArchitecturesAllowed=" + arch,
+            "ChangesEnvironment=yes",
+            "Compression=lzma2",
+            "OutputDir=" + Path.GetDirectoryName(output),
+            "OutputBaseFilename=" + Path.GetFileNameWithoutExtension(output),
+            "",
+            "[Tasks]",
+            "Name: addtopath; Description: \"Add " + name + " to the PATH, so it can be run from any terminal\"",
+            "",
+            "[Files]",
+            "Source: \"" + info.Executable + "\"; DestDir: \"{app}\"; DestName: \"" + name + ".exe\"",
+            "",
+            "[Icons]",
+            "Name: \"{group}\\" + name + "\"; Filename: \"{cmd}\"; Parameters: \"/k \"\"{app}\\" + name + ".exe\"\"\"; WorkingDir: \"{userdocs}\"",
+            "",
+            "[Registry]",
+            "Root: HKCU; Subkey: \"Environment\"; ValueType: expandsz; ValueName: \"Path\"; ValueData: \"{olddata};{app}\"; " +
+                "Check: NeedsAddPath(ExpandConstant('{app}')); Tasks: addtopath",
+            "",
+            "[Code]",
+            "function NeedsAddPath(Param: string): Boolean;",
+            "var OrigPath: string;",
+            "begin",
+            "  if not RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', OrigPath) then",
+            "  begin",
+            "    Result := True;",
+            "    exit;",
+            "  end;",
+            "  Result := Pos(';' + Uppercase(Param) + ';', ';' + Uppercase(OrigPath) + ';') = 0;",
+            "end;",
+            "");
+        File.WriteAllText(scriptFile, script);
+
+        var start = new System.Diagnostics.ProcessStartInfo(compiler)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        start.ArgumentList.Add("/Q");
+        start.ArgumentList.Add(scriptFile);
+        using var process = System.Diagnostics.Process.Start(start)!;
+        string text = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        if (process.ExitCode != 0)
+            return "Inno Setup failed:\n" + text;
+
+        Console.WriteLine($"Built {output} (installs to your programs folder; run it with /VERYSILENT for no questions)");
+        return null;
+    }
+
+    private static string? FindCompiler()
+    {
+        var folders = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Concat(new[]
+            {
+                Environment.GetEnvironmentVariable("ProgramFiles(x86)"),
+                Environment.GetEnvironmentVariable("ProgramFiles"),
+                Path.Combine(Environment.GetEnvironmentVariable("LOCALAPPDATA") ?? "", "Programs"),
+            }.Where(f => !string.IsNullOrEmpty(f)).Select(f => Path.Combine(f!, "Inno Setup 6")));
+        return folders.Select(f => Path.Combine(f, "ISCC.exe")).FirstOrDefault(File.Exists);
+    }
+}

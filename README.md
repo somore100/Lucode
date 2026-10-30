@@ -334,6 +334,9 @@ lucode build hello.luc            # makes ./hello (hello.exe on Windows)
 lucode build hello.luc -o greet   # pick the name
 ```
 
+Add `--installer` on Windows for a setup program (needs
+[Inno Setup](https://jrsoftware.org/isinfo.php): `winget install JRSoftware.InnoSetup`): it installs to the
+programs folder of the current user with a Start menu entry, can add the program to PATH, and can be uninstalled.
 Add `--appimage` for one file that runs on most Linux systems (needs
 [`appimagetool`](https://github.com/AppImage/appimagetool/releases) on your PATH).
 Add `--rpm` for Fedora (`sudo dnf install ./hello-1.0-1.x86_64.rpm`; needs `sudo dnf install rpm-build` once)
@@ -444,7 +447,8 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 - [x] `lucode build`: turn a program into one standalone file (copy of lucode + your program)
 - [x] `lucode build --deb` / `--rpm`: Debian/Ubuntu and Fedora packages (0.11.0 / 0.12.0)
 - [x] `lucode build --appimage` (0.13.0)
-- [ ] More package formats: then Windows installer, then macOS `.app`/`.dmg`; later the same for lucode itself
+- [x] `lucode build --installer`: Windows setup program (0.14.0)
+- [ ] More package formats: macOS `.app`/`.dmg`; later the same for lucode itself
 - [ ] Bytecode (`.lucc`): errors found at build time and faster runs
 
 ### Visual programming
