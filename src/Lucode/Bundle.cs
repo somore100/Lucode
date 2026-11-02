@@ -83,21 +83,67 @@ public static class Bundle
             if (options.Format is null)
                 return BuildExecutable(self, input, name, source, options.Output);
 
-            return options.Format switch
-            {
-                "deb" => BuildPackage(self, input, name, source, options, DebPackage.Create),
-                "rpm" => BuildPackage(self, input, name, source, options, RpmPackage.Create),
-                "appimage" => BuildPackage(self, input, name, source, options, AppImagePackage.Create),
-                "installer" => BuildPackage(self, input, name, source, options, InstallerPackage.Create),
-                "app" => BuildPackage(self, input, name, source, options, MacPackage.CreateApp),
-                "dmg" => BuildPackage(self, input, name, source, options, MacPackage.CreateDmg),
-                _ => throw new InvalidOperationException($"Unknown format {options.Format}"),
-            };
+            return BuildPackage(self, input, name, source, options, Creator(options.Format));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             Console.Error.WriteLine($"Can't write the output: {e.Message}");
             return 1;
+        }
+    }
+
+    /// <summary>The package maker for a format name such as "deb".</summary>
+    private static Func<PackageInfo, string?> Creator(string format) => format switch
+    {
+        "deb" => DebPackage.Create,
+        "rpm" => RpmPackage.Create,
+        "appimage" => AppImagePackage.Create,
+        "installer" => InstallerPackage.Create,
+        "app" => MacPackage.CreateApp,
+        "dmg" => MacPackage.CreateDmg,
+        _ => throw new InvalidOperationException($"Unknown format {format}"),
+    };
+
+    /// <summary>`lucode package --deb`: packages lucode itself (no program inside) instead of a .luc program.</summary>
+    public static int PackageSelf(BuildOptions options, string defaultVersion)
+    {
+        string? self = Environment.ProcessPath;
+        if (self is null || Path.GetFileNameWithoutExtension(self).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine("'package' needs the standalone lucode program (download it from the Releases page), " +
+                                    "not 'dotnet lucode.dll'.");
+            return 1;
+        }
+
+        string temp = Path.Combine(Path.GetTempPath(), "lucode-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(temp);
+        try
+        {
+            // The packages work from a copy, so their scratch files never land next to the installed lucode.
+            string exe = Path.Combine(temp, "program");
+            File.Copy(self, exe);
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(exe, File.GetUnixFileMode(exe)
+                    | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+
+            var info = new PackageInfo("lucode", exe, options.Output, options.Version ?? defaultVersion, options.Maintainer,
+                options.Description ?? "Lucode, a small readable programming language for logic, math and live relationships");
+            string? problem = Creator(options.Format!)(info);
+            if (problem is not null)
+            {
+                Console.Error.WriteLine(problem);
+                return 1;
+            }
+            return 0;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"Can't write the output: {e.Message}");
+            return 1;
+        }
+        finally
+        {
+            Directory.Delete(temp, recursive: true);
         }
     }
 

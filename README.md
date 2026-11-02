@@ -327,6 +327,12 @@ there (add `"\n"` yourself if you want a line break at the end). Numbers and
 lists are turned into text the same way `print` does. A folder that doesn't
 exist is an error.
 
+### Installing Lucode: packages
+
+Besides the plain downloads, the Releases page has `lucode` as a `.deb`, `.rpm` and AppImage (Linux),
+a setup program (Windows) and a disk image (macOS). They are made with `lucode package --deb` (and the
+other formats below), which packs lucode itself.
+
 ### Making a program: `lucode build`
 
 ```
@@ -452,7 +458,8 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 - [x] `lucode build --appimage` (0.13.0)
 - [x] `lucode build --installer`: Windows setup program (0.14.0)
 - [x] `lucode build --app` / `--dmg`: macOS app and disk image (0.15.0)
-- [ ] The same packages for lucode itself on the Releases page
+- [x] The same packages for lucode itself on the Releases page (`lucode package`, 0.16.0)
+- [ ] Homebrew and winget entries, a one-line install script
 - [ ] Bytecode (`.lucc`): errors found at build time and faster runs
 
 ### Visual programming

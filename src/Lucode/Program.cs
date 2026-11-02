@@ -1,6 +1,6 @@
 using Lucode;
 
-const string Version = "0.15.0";
+const string Version = "0.16.0";
 
 // A program built with 'lucode build' carries its own text: run that and ignore the command line.
 if (Bundle.ReadEmbedded() is { } embedded)
@@ -19,6 +19,7 @@ if (args[0] is "-h" or "--help")
     Console.WriteLine("Usage: lucode [file.luc]");
     Console.WriteLine("       lucode            start an interactive prompt");
     Console.WriteLine("       lucode build file.luc [-o name] [--deb|--rpm|--appimage|--installer|--app|--dmg]   make a standalone program or a package");
+    Console.WriteLine("       lucode package --deb|--rpm|...   package lucode itself");
     Console.WriteLine("       lucode --lsp      language server for editors (talks over stdin/stdout)");
     return 0;
 }
@@ -29,9 +30,12 @@ if (args[0] is "-v" or "--version")
     return 0;
 }
 
-if (args[0] == "build")
+if (args[0] is "build" or "package")
 {
-    const string usage = "Usage: lucode build file.luc [-o name] [--deb | --rpm | --appimage | --installer | --app | --dmg] [--version 1.0] [--maintainer \"Name <mail>\"] [--description \"text\"]";
+    bool packageSelf = args[0] == "package"; // packages lucode itself
+    string usage = packageSelf
+        ? "Usage: lucode package --deb|--rpm|--appimage|--installer|--app|--dmg [-o name] [--version 1.0]"
+        : "Usage: lucode build file.luc [-o name] [--deb | --rpm | --appimage | --installer | --app | --dmg] [--version 1.0] [--maintainer \"Name <mail>\"] [--description \"text\"]";
     string? input = null, output = null, format = null, version = null, maintainer = null, description = null;
     for (int i = 1; i < args.Length; i++)
     {
@@ -62,7 +66,7 @@ if (args[0] == "build")
                 break;
         }
     }
-    if (input is null)
+    if (packageSelf ? input is not null || format is null : input is null)
     {
         Console.Error.WriteLine(usage);
         return 1;
@@ -72,7 +76,9 @@ if (args[0] == "build")
         Console.Error.WriteLine("--version, --maintainer and --description only apply to packages, like --deb or --dmg.");
         return 1;
     }
-    return Bundle.Build(new BuildOptions(input, output, format, version, maintainer, description));
+    return packageSelf
+        ? Bundle.PackageSelf(new BuildOptions("lucode", output, format, version, maintainer, description), Version)
+        : Bundle.Build(new BuildOptions(input!, output, format, version, maintainer, description));
 }
 
 if (args[0] == "--lsp")

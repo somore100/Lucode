@@ -109,3 +109,54 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "$GITHUB_REF_NAME" $(ls lucode-*.zip lucode-*.tar.gz 2>/dev/null) --clobber
+
+  # lucode itself as .deb/.rpm/AppImage (Linux), setup program (Windows) and disk image (macOS).
+  # Each package is built on a machine of its own kind, because the packager runs the matching lucode.
+  native:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, rid: linux-x64, tool: x86_64 }
+          - { os: ubuntu-24.04-arm, rid: linux-arm64, tool: aarch64 }
+          - { os: windows-latest, rid: win-x64, tool: "" }
+          - { os: macos-latest, rid: osx-arm64, tool: "" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish lucode
+        shell: bash
+        run: dotnet publish src/Lucode -c Release -r ${{ matrix.rid }} --self-contained -p:PublishSingleFile=true -p:InvariantGlobalization=true -o out --nologo
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get install -y rpm
+          sudo curl -fsSL -o /usr/local/bin/appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${{ matrix.tool }}.AppImage
+          sudo chmod +x /usr/local/bin/appimagetool
+          mkdir pkg && cd pkg
+          for kind in deb rpm appimage; do ../out/lucode package --$kind --version "${GITHUB_REF_NAME#v}"; done
+      - name: Windows installer
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          choco install innosetup --no-progress -y
+          mkdir pkg && cd pkg
+          ../out/lucode.exe package --installer --version "${GITHUB_REF_NAME#v}"
+      - name: macOS disk image
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir pkg && cd pkg
+          ../out/lucode package --dmg --version "${GITHUB_REF_NAME#v}" -o "lucode-${GITHUB_REF_NAME#v}-${{ matrix.rid }}.dmg"
+      - name: Attach to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" pkg/* --clobber

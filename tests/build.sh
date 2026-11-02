@@ -52,6 +52,16 @@ else
     echo "note: 'ar' not found, skipped the .deb check"
 fi
 
+# 'lucode package' packs lucode itself: the program unpacked from the .deb must be this version.
+if command -v ar >/dev/null; then
+    (cd "$tmp" && "$lucode" package --deb -o self.deb >/dev/null) || { echo "FAIL: package --deb"; fail=1; }
+    mkdir "$tmp/selfroot"
+    ar p "$tmp/self.deb" data.tar.gz | tar xz -C "$tmp/selfroot"
+    expected=$("$lucode" --version)
+    actual=$("$tmp/selfroot/usr/bin/lucode" --version 2>&1)
+    [ "$actual" == "$expected" ] || { echo "FAIL: packaged lucode said: $actual (expected $expected)"; fail=1; }
+fi
+
 # An .rpm needs rpmbuild; check it with rpm itself and run the program unpacked from it.
 if command -v rpmbuild >/dev/null && command -v rpm >/dev/null && command -v rpm2cpio >/dev/null && command -v cpio >/dev/null; then
     "$lucode" build "$tmp/hello.luc" --rpm -o "$tmp/hello.rpm" --version 2.1 --description "Says hello" >/dev/null \
