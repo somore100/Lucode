@@ -452,3 +452,109 @@ public static class InstallerPackage
         return folders.Select(f => Path.Combine(f, "ISCC.exe")).FirstOrDefault(File.Exists);
     }
 }
+
+/// <summary>
+/// macOS: a `name.app` bundle, or a `.dmg` disk image holding one. Double-clicking the app opens
+/// Terminal and runs the program there (Lucode programs are text programs, not windowed ones).
+/// </summary>
+public static class MacPackage
+{
+    public static string? CreateApp(PackageInfo info) => Create(info, dmg: false);
+
+    public static string? CreateDmg(PackageInfo info) => Create(info, dmg: true);
+
+    private static string? Create(PackageInfo info, bool dmg)
+    {
+        if (!OperatingSystem.IsMacOS())
+            return "A macOS app can only be made on a Mac, because it needs a macOS lucode.";
+
+        string name = Regex.Replace(info.Name.ToLowerInvariant(), "[^a-z0-9._-]", "-").Trim('-', '.', '_');
+        if (name.Length < 2)
+            return $"'{info.Name}' can't be turned into a program name (needs two or more letters or digits).";
+        if (!Regex.IsMatch(info.Version, "^[0-9][0-9.]*$"))
+            return $"'{info.Version}' isn't a valid version. On macOS it can only use digits and dots, like 1.0 or 2.3.1.";
+
+        string temp = Path.GetDirectoryName(info.Executable)!;
+        // For an .app the bundle is the result; for a .dmg it is built in a staging folder first.
+        string stage = Path.Combine(temp, "stage");
+        Directory.CreateDirectory(stage);
+        string appPath = dmg
+            ? Path.Combine(stage, name + ".app")
+            : Path.GetFullPath(info.Output ?? name + ".app");
+        if (!dmg && !appPath.EndsWith(".app", StringComparison.Ordinal))
+            return "The name for an app must end in .app (for example -o hello.app).";
+        if (Directory.Exists(appPath)) Directory.Delete(appPath, recursive: true);
+
+        string resources = Path.Combine(appPath, "Contents", "Resources");
+        string macos = Path.Combine(appPath, "Contents", "MacOS");
+        Directory.CreateDirectory(resources);
+        Directory.CreateDirectory(macos);
+
+        string program = Path.Combine(resources, name);
+        File.Copy(info.Executable, program);
+        File.SetUnixFileMode(program, (UnixFileMode)0b111_101_101);
+
+        // The launcher opens the program in Terminal, so there is somewhere to see its output and type its input.
+        string launcher = Path.Combine(macos, name);
+        File.WriteAllText(launcher,
+            "#!/bin/bash\n" +
+            "DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n" +
+            "exec open -a Terminal \"$DIR/../Resources/" + name + "\"\n");
+        File.SetUnixFileMode(launcher, (UnixFileMode)0b111_101_101);
+
+        static string Xml(string text) => System.Security.SecurityElement.Escape(text);
+        File.WriteAllText(Path.Combine(appPath, "Contents", "Info.plist"),
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+            "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n" +
+            "<plist version=\"1.0\">\n<dict>\n" +
+            "  <key>CFBundleName</key><string>" + Xml(name) + "</string>\n" +
+            "  <key>CFBundleExecutable</key><string>" + Xml(name) + "</string>\n" +
+            "  <key>CFBundleIdentifier</key><string>local.lucode." + Xml(name) + "</string>\n" +
+            "  <key>CFBundleVersion</key><string>" + Xml(info.Version) + "</string>\n" +
+            "  <key>CFBundleShortVersionString</key><string>" + Xml(info.Version) + "</string>\n" +
+            "  <key>CFBundlePackageType</key><string>APPL</string>\n" +
+            "  <key>LSMinimumSystemVersion</key><string>11.0</string>\n" +
+            "</dict>\n</plist>\n");
+
+        // macOS refuses code whose signature doesn't match: sign the whole bundle (ad hoc, no developer account).
+        string? problem = Run("codesign", "--force", "--deep", "--sign", "-", appPath);
+        if (problem is not null) return problem;
+
+        if (!dmg)
+        {
+            Console.WriteLine($"Built {appPath} (double-click it, or: open {Path.GetFileName(appPath)})");
+            return null;
+        }
+
+        File.CreateSymbolicLink(Path.Combine(stage, "Applications"), "/Applications"); // the usual drag-to-install target
+        string output = Path.GetFullPath(info.Output ?? $"{name}-{info.Version}.dmg");
+        if (File.Exists(output)) File.Delete(output);
+        problem = Run("hdiutil", "create", "-volname", name, "-srcfolder", stage, "-ov", "-format", "UDZO", output);
+        if (problem is not null) return problem;
+
+        Console.WriteLine($"Built {output} (open it and drag {name} to Applications)");
+        return null;
+    }
+
+    /// <summary>Runs a macOS tool. Returns an error message, or null when it worked.</summary>
+    private static string? Run(string tool, params string[] arguments)
+    {
+        var start = new System.Diagnostics.ProcessStartInfo(tool)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        foreach (var argument in arguments) start.ArgumentList.Add(argument);
+        try
+        {
+            using var process = System.Diagnostics.Process.Start(start)!;
+            string text = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            return process.ExitCode == 0 ? null : $"{tool} failed:\n{text}";
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return $"'{tool}' wasn't found, and making a Mac package needs it.";
+        }
+    }
+}

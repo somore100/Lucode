@@ -44,6 +44,28 @@ jobs:
           Start-Process .\hello-setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/DIR=C:\hello-test','/TASKS=' -Wait
           if (("Eve" | C:\hello-test\hello.exe) -ne "Name? Hello, Eve") { throw "installed program printed the wrong thing" }
 
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build, make an app and a disk image, and run the program from each
+        run: |
+          dotnet publish src/Lucode -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true -p:InvariantGlobalization=true -o out --nologo
+          printf 'name = ask "Name?"\nrule greeting = "Hello, " + name\nprint greeting\n' > hello.luc
+          ./out/lucode build hello.luc -o hello
+          test "$(echo Sam | ./hello 2>&1)" = "Name? Hello, Sam"
+          ./out/lucode build hello.luc --app --version 2.1
+          plutil -lint hello.app/Contents/Info.plist
+          codesign --verify --deep hello.app
+          test "$(echo Eve | ./hello.app/Contents/Resources/hello 2>&1)" = "Name? Hello, Eve"
+          ./out/lucode build hello.luc --dmg -o hello.dmg --version 2.1
+          hdiutil attach hello.dmg -mountpoint /tmp/hello-dmg -nobrowse
+          test "$(echo Ann | /tmp/hello-dmg/hello.app/Contents/Resources/hello 2>&1)" = "Name? Hello, Ann"
+          hdiutil detach /tmp/hello-dmg
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: test

@@ -334,6 +334,9 @@ lucode build hello.luc            # makes ./hello (hello.exe on Windows)
 lucode build hello.luc -o greet   # pick the name
 ```
 
+On a Mac, `--app` makes `hello.app` (double-click opens Terminal and runs it) and `--dmg` makes a disk image
+with the app in it, ready to drag to Applications. They are signed ad hoc, so macOS may ask you to allow them in
+System Settings > Privacy and Security the first time.
 Add `--installer` on Windows for a setup program (needs
 [Inno Setup](https://jrsoftware.org/isinfo.php): `winget install JRSoftware.InnoSetup`): it installs to the
 programs folder of the current user with a Start menu entry, can add the program to PATH, and can be uninstalled.
@@ -448,7 +451,8 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 - [x] `lucode build --deb` / `--rpm`: Debian/Ubuntu and Fedora packages (0.11.0 / 0.12.0)
 - [x] `lucode build --appimage` (0.13.0)
 - [x] `lucode build --installer`: Windows setup program (0.14.0)
-- [ ] More package formats: macOS `.app`/`.dmg`; later the same for lucode itself
+- [x] `lucode build --app` / `--dmg`: macOS app and disk image (0.15.0)
+- [ ] The same packages for lucode itself on the Releases page
 - [ ] Bytecode (`.lucc`): errors found at build time and faster runs
 
 ### Visual programming

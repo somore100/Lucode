@@ -89,6 +89,8 @@ public static class Bundle
                 "rpm" => BuildPackage(self, input, name, source, options, RpmPackage.Create),
                 "appimage" => BuildPackage(self, input, name, source, options, AppImagePackage.Create),
                 "installer" => BuildPackage(self, input, name, source, options, InstallerPackage.Create),
+                "app" => BuildPackage(self, input, name, source, options, MacPackage.CreateApp),
+                "dmg" => BuildPackage(self, input, name, source, options, MacPackage.CreateDmg),
                 _ => throw new InvalidOperationException($"Unknown format {options.Format}"),
             };
         }
