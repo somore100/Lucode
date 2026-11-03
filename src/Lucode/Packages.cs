@@ -529,8 +529,14 @@ public static class MacPackage
         File.CreateSymbolicLink(Path.Combine(stage, "Applications"), "/Applications"); // the usual drag-to-install target
         string output = Path.GetFullPath(info.Output ?? $"{name}-{info.Version}.dmg");
         if (File.Exists(output)) File.Delete(output);
-        problem = Run("hdiutil", "create", "-volname", name, "-srcfolder", stage, "-ov", "-format", "UDZO", output);
-        if (problem is not null) return problem;
+        // hdiutil sometimes fails with "Resource busy" right after the files were written; a short wait fixes it.
+        for (int attempt = 1; ; attempt++)
+        {
+            problem = Run("hdiutil", "create", "-volname", name, "-srcfolder", stage, "-ov", "-format", "UDZO", output);
+            if (problem is null) break;
+            if (attempt == 4) return problem;
+            Thread.Sleep(3000);
+        }
 
         Console.WriteLine($"Built {output} (open it and drag {name} to Applications)");
         return null;

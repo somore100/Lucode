@@ -62,9 +62,9 @@ jobs:
           codesign --verify --deep hello.app
           test "$(echo Eve | ./hello.app/Contents/Resources/hello 2>&1)" = "Name? Hello, Eve"
           ./out/lucode build hello.luc --dmg -o hello.dmg --version 2.1
-          hdiutil attach hello.dmg -mountpoint /tmp/hello-dmg -nobrowse
+          for i in 1 2 3 4; do hdiutil attach hello.dmg -mountpoint /tmp/hello-dmg -nobrowse && break; sleep 3; done
           test "$(echo Ann | /tmp/hello-dmg/hello.app/Contents/Resources/hello 2>&1)" = "Name? Hello, Ann"
-          hdiutil detach /tmp/hello-dmg
+          for i in 1 2 3 4; do hdiutil detach /tmp/hello-dmg && break; sleep 3; done
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -118,6 +118,7 @@ jobs:
     permissions:
       contents: write
     strategy:
+      fail-fast: false # a flaky platform must not stop the other packages
       matrix:
         include:
           - { os: ubuntu-latest, rid: linux-x64, tool: x86_64 }
