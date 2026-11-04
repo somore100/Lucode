@@ -329,6 +329,13 @@ exist is an error.
 
 ### Installing Lucode: packages
 
+On Linux and macOS the quickest way is the install script (no sudo; it puts `lucode` in `~/.local/bin`):
+
+```
+curl -fsSL https://raw.githubusercontent.com/somore100/Lucode/main/install.sh | sh
+```
+
+
 Besides the plain downloads, the Releases page has `lucode` as a `.deb`, `.rpm` and AppImage (Linux),
 a setup program (Windows) and a disk image (macOS). They are made with `lucode package --deb` (and the
 other formats below), which packs lucode itself.
@@ -459,7 +466,8 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 - [x] `lucode build --installer`: Windows setup program (0.14.0)
 - [x] `lucode build --app` / `--dmg`: macOS app and disk image (0.15.0)
 - [x] The same packages for lucode itself on the Releases page (`lucode package`, 0.16.0)
-- [ ] Homebrew and winget entries, a one-line install script
+- [x] One-line install script (`install.sh`, 0.17.0)
+- [ ] Homebrew and winget: `packaging/make-manifests.sh vX.Y.Z` writes the files; they still have to be published (a `homebrew-lucode` tap repo; a pull request to winget-pkgs)
 - [ ] Bytecode (`.lucc`): errors found at build time and faster runs
 
 ### Visual programming
