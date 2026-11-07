@@ -1,6 +1,6 @@
 using Lucode;
 
-const string Version = "0.17.0";
+const string Version = "0.19.0";
 
 // A program built with 'lucode build' carries its own text: run that and ignore the command line.
 if (Bundle.ReadEmbedded() is { } embedded)

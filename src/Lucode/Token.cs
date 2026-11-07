@@ -20,6 +20,7 @@ public enum TokenType
     Give,
     For,
     List,
+    Record,
     And,
     Or,
     Not,
@@ -34,6 +35,7 @@ public enum TokenType
     Star,
     Slash,
     Percent,
+    Caret,        // ^  (to the power of)
 
     // Comparison
     Equal,        // =   (assignment at line start, comparison inside expressions)
@@ -47,6 +49,8 @@ public enum TokenType
     LeftParen,
     RightParen,
     Comma,
+    Colon,        // after a field name in a record: age: 30
+    Dot,          // person.age
 
     // Structure
     Newline,

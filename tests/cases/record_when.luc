@@ -1,0 +1,5 @@
+person = name: "Sam", age: 17
+when person.age >= 18
+    print "adult"
+person.age = 18
+print "done"

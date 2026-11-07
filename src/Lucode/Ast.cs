@@ -24,6 +24,12 @@ public sealed record ListExpr(List<Expr> Items, int Line) : Expr(Line);
 /// <summary>"item 2 of scores": one item of a list (or one letter of a text), counting from 1.</summary>
 public sealed record ItemExpr(Expr Position, Expr Source, int Line) : Expr(Line);
 
+/// <summary>"name: "Sam", age: 30" (or just "record" for an empty one).</summary>
+public sealed record RecordExpr(List<(string Name, Expr Value)> Fields, int Line) : Expr(Line);
+
+/// <summary>"person.age" or "age of person": one field of a record.</summary>
+public sealed record FieldExpr(Expr Source, string Name, int Line) : Expr(Line);
+
 /// <summary>"count of scores": how many items a list has (or letters a text has).</summary>
 public sealed record CountExpr(Expr Source, int Line) : Expr(Line);
 
@@ -84,3 +90,6 @@ public sealed record WriteStmt(Expr Value, Expr Path, int Line) : Stmt(Line);
 
 /// <summary>"sort scores": the list is put in order (all numbers, or all text).</summary>
 public sealed record SortStmt(string Target, bool Descending, int Line) : Stmt(Line);
+
+/// <summary>"person.age = 31" or "set age of person to 31": the record gets that field set (a new field is added).</summary>
+public sealed record SetFieldStmt(string Target, List<string> Path, Expr Value, int Line) : Stmt(Line);

@@ -1,0 +1,3 @@
+person = name: "Sam", age: 20
+rule adult = person.age >= 18
+why adult

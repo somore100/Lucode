@@ -1,0 +1,23 @@
+print round 2.5
+print round (-2.5)
+print round 3.4
+print floor 3.9
+print floor (-3.1)
+print ceiling 3.1
+print abs (-7)
+print sqrt 16
+print sqrt 2
+print 2 ^ 10
+print 2 ^ 3 ^ 2
+print -2 ^ 2
+print 2 ^ -1
+print pi
+scores = list 3, 9, 4
+print sum of scores
+print largest of scores
+print smallest of scores
+print average of scores
+print sum of list
+print round (3.14159 * 100) / 100
+round = 7
+print round

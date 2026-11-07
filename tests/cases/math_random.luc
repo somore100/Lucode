@@ -1,0 +1,4 @@
+roll = random 6
+print roll >= 1 and roll <= 6
+print random 1
+print roll = round roll

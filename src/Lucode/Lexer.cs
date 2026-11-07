@@ -23,6 +23,7 @@ public sealed class Lexer
         ["give"] = TokenType.Give,
         ["for"] = TokenType.For,
         ["list"] = TokenType.List,
+        ["record"] = TokenType.Record,
         ["and"] = TokenType.And,
         ["or"] = TokenType.Or,
         ["not"] = TokenType.Not,
@@ -152,9 +153,12 @@ public sealed class Lexer
                 case '*': Add(TokenType.Star, "*", line); break;
                 case '/': Add(TokenType.Slash, "/", line); break;
                 case '%': Add(TokenType.Percent, "%", line); break;
+                case '^': Add(TokenType.Caret, "^", line); break;
                 case '(': Add(TokenType.LeftParen, "(", line); break;
                 case ')': Add(TokenType.RightParen, ")", line); break;
                 case ',': Add(TokenType.Comma, ",", line); break;
+                case ':': Add(TokenType.Colon, ":", line); break;
+                case '.': Add(TokenType.Dot, ".", line); break;
                 case '=':
                     if (next == '=')
                         throw new LucodeError(line, "Lucode uses a single '=' for comparison. Write 'a = b' instead of 'a == b'.");

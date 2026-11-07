@@ -1,0 +1,3 @@
+stats = sum: 5, average: 2
+print sum of stats
+print average of stats

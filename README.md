@@ -217,6 +217,31 @@ if 82 in scores
   phrases, so they still work as names (`for each item in items`).
 - `for` and `list` are keywords.
 
+### Records
+
+A record holds named fields, like a person with a name and an age:
+
+```
+person = name: "Sam", age: 30
+print person.age              # 30
+print age of person           # 30, the same thing in words
+person.age = 31               # or: set age of person to 31
+print person                  # name: "Sam", age: 31
+```
+
+- Read a field with `person.age` or `age of person`; change it (or add a new one) with `person.age = 31`
+  or `set age of person to 31`. A field that isn't there is an error that suggests the closest name:
+  `Record 'person' has no field 'agee'. Did you mean 'age'?`
+- `record` alone is an empty record: `person = record`, then `person.name = "Sam"`.
+- Records are values, like lists: `b = a` copies, and changing a field builds a new record, so `when`
+  fires and commands never touch the outside.
+- Put a record inside another record or a list with brackets: `list (name: "A"), (name: "B")`,
+  and read it with `person.address.city`.
+- `for each field in person` goes through the field names, `count of person` is how many there are,
+  `"age" in person` asks whether a field exists, and `item "age" of person` finds a field by a name you hold in a variable.
+- Two records are equal when they have the same fields with equal values, in any order.
+- `record` is now a keyword, like `list`; a variable called `record` has to be renamed.
+
 ### Commands: `to` and `give`
 
 ```
@@ -274,6 +299,32 @@ print replace "a" with "o" in "banana" # bonono
   the word takes just the next value: `upper a + b` is `(upper a) + b`.
 - `upper`, `lower`, `trim`, `number`, `split`, `join`, `find`, `replace` (and `ask`, `sort`, `write`) are only special
   when a value follows, so they still work as names.
+
+### Math words
+
+```
+print round 2.5               # 3 (halves round away from zero)
+print floor 3.9               # 3
+print ceiling 3.1             # 4
+print abs (0 - 7)             # 7
+print sqrt 16                 # 4
+print 2 ^ 10                  # 1024
+print pi                      # 3.14159265358979
+print random 6                # a whole number from 1 to 6, like a die
+scores = list 3, 9, 4
+print sum of scores           # 16
+print largest of scores       # 9
+print smallest of scores      # 3
+print average of scores       # 5.33333333333333
+```
+
+- The words take the next value only, like the text words: `round x * 100` is `(round x) * 100`; use brackets
+  (`round (x * 100)`), and for a negative number too: `round (-2.5)`.
+- `^` is "to the power of". It binds tighter than `*` and reads right to left: `2 ^ 3 ^ 2` is `2 ^ 9`, and `-2 ^ 2` is `-4`.
+- `sum of`, `largest of`, `smallest of` and `average of` need a list of numbers (`sum of list` is 0; the others
+  need at least one item). If a record has a field with the same name, `sum of person` reads that field instead.
+- `pi` is a variable that starts with the value of pi. Like the words above, all these names still work as
+  names of your own variables.
 
 ### Sorting
 
@@ -466,6 +517,8 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 - [x] `lucode build --installer`: Windows setup program (0.14.0)
 - [x] `lucode build --app` / `--dmg`: macOS app and disk image (0.15.0)
 - [x] The same packages for lucode itself on the Releases page (`lucode package`, 0.16.0)
+- [x] Records: `person = name: "Sam", age: 30`, `person.age`, `age of person` (0.18.0)
+- [x] Math words: `round`, `floor`, `ceiling`, `abs`, `sqrt`, `random`, `^`, `pi`, `sum of`/`largest of`/`smallest of`/`average of` (0.19.0)
 - [x] One-line install script (`install.sh`, 0.17.0)
 - [ ] Homebrew and winget: `packaging/make-manifests.sh vX.Y.Z` writes the files; they still have to be published (a `homebrew-lucode` tap repo; a pull request to winget-pkgs)
 - [ ] Bytecode (`.lucc`): errors found at build time and faster runs

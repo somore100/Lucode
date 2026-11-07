@@ -1,0 +1,19 @@
+person = name: "Sam", age: 30
+print person
+print person.name
+print age of person
+person.age = 31
+print age of person
+set name of person to "Alex"
+print person
+other = person
+other.age = 99
+print person.age
+print other.age
+print count of person
+for each field in person
+    print field
+print "age" in person
+print "agee" in person
+print item "name" of person
+print person = (name: "Alex", age: 31)

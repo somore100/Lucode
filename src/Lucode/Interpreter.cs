@@ -50,7 +50,10 @@ public sealed class Interpreter
     {
         _output = output ?? Console.Out;
         _input = input ?? Console.In;
+        _variables["pi"] = Math.PI;
     }
+
+    private readonly Random _random = new();
 
     /// <param name="finish">False in the REPL, where the program isn't over after each chunk.</param>
     public void Run(List<Stmt> program, bool finish = true)
@@ -92,10 +95,11 @@ public sealed class Interpreter
                 // Going through a copy, so changing the list inside the loop doesn't change the loop.
                 IReadOnlyList<object> things = source switch
                 {
+                    RecordValue fields => fields.Names.Select(n => (object)n).ToArray(),
                     List<object> list => list.ToArray(),
                     string text => text.Select(c => (object)c.ToString()).ToArray(),
                     _ => throw new LucodeError(each.Line,
-                        $"'for each' needs a list or text, but got {TypeName(source)} {Describe(source)}."),
+                        $"'for each' needs a list, text or record, but got {TypeName(source)} {Describe(source)}."),
                 };
                 foreach (var thing in things)
                 {
@@ -138,6 +142,15 @@ public sealed class Interpreter
                 {
                     throw new LucodeError(write.Line, $"Can't write \"{writeTo}\": {e.Message}");
                 }
+                break;
+
+            case SetFieldStmt set:
+                var newValue = Evaluate(set.Value);
+                var holder = LookUp(new VariableExpr(set.Target, set.Line));
+                if (holder is not RecordValue record)
+                    throw new LucodeError(set.Line,
+                        $"Can't set a field of '{set.Target}': it's {TypeName(holder)} {Describe(holder)}, not a record.");
+                Assign(set.Target, WithPath(record, set.Path, 0, newValue, set.Line), set.Line);
                 break;
 
             case CommandStmt command:
@@ -257,6 +270,27 @@ public sealed class Interpreter
         var value = LookUp(new VariableExpr(name, line));
         return value as List<object>
             ?? throw new LucodeError(line, $"Can't {verb} '{name}': it's {TypeName(value)} {Describe(value)}, not a list.");
+    }
+
+    /// <summary>The record with the field at the end of the path set; a missing last field is added, a missing middle one is an error.</summary>
+    private static RecordValue WithPath(RecordValue record, List<string> path, int depth, object value, int line)
+    {
+        string field = path[depth];
+        if (depth == path.Count - 1)
+            return record.With(field, value);
+
+        if (!record.TryGet(field, out var child))
+            throw MissingField(null, field, record, line);
+        if (child is not RecordValue inner)
+            throw new LucodeError(line, $"'{field}' is {TypeName(child)} {Describe(child)}, not a record, so it has no fields to set.");
+        return record.With(field, WithPath(inner, path, depth + 1, value, line));
+    }
+
+    private static MissingValueError MissingField(string? owner, string field, RecordValue record, int line)
+    {
+        string whose = owner is null ? "This record" : $"Record '{owner}'";
+        return new MissingValueError(line, owner ?? field,
+            $"{whose} has no field '{field}'.{Suggest.Hint(field, record.Names)}");
     }
 
     /// <summary>Turns a position (counting from 1) into a 0-based index, or explains what's wrong with it.</summary>
@@ -382,6 +416,15 @@ public sealed class Interpreter
                     Collect(item, found);
                 break;
 
+            case RecordExpr record:
+                foreach (var field in record.Fields)
+                    Collect(field.Value, found);
+                break;
+
+            case FieldExpr field:
+                Collect(field.Source, found);
+                break;
+
             case ItemExpr item:
                 Collect(item.Position, found);
                 Collect(item.Source, found);
@@ -412,7 +455,13 @@ public sealed class Interpreter
         }
     }
 
-    private static string Show(object value) => value is string s ? $"\"{s}\"" : Format(value);
+    // Inside a list or another record a record gets brackets, so where it ends is clear.
+    private static string Show(object value) => value switch
+    {
+        string s => $"\"{s}\"",
+        RecordValue { Count: > 0 } record => $"({Format(record)})",
+        _ => Format(value),
+    };
 
     // ----- 'when' -----
 
@@ -500,6 +549,8 @@ public sealed class Interpreter
         LogicalExpr logical => EvaluateLogical(logical),
         BinaryExpr binary => EvaluateBinary(binary),
         ListExpr list => list.Items.Select(Evaluate).ToList(),
+        RecordExpr record => new RecordValue(record.Fields.Select(f => KeyValuePair.Create(f.Name, Evaluate(f.Value)))),
+        FieldExpr field => EvaluateField(field),
         ItemExpr item => EvaluateItem(item),
         CountExpr count => EvaluateCount(count),
         BuiltinExpr word => EvaluateBuiltin(word),
@@ -603,18 +654,36 @@ public sealed class Interpreter
         }
     }
 
+    private object EvaluateField(FieldExpr field)
+    {
+        var source = Evaluate(field.Source);
+        if (source is not RecordValue record)
+            throw new LucodeError(field.Line,
+                $"Can't read '{field.Name}' of {TypeName(source)} {Describe(source)}: only a record has fields.");
+        return record.TryGet(field.Name, out var value)
+            ? value
+            : throw MissingField((field.Source as VariableExpr)?.Name, field.Name, record, field.Line);
+    }
+
     private object EvaluateItem(ItemExpr item)
     {
         var source = Evaluate(item.Source);
         var position = Evaluate(item.Position);
         switch (source)
         {
+            case RecordValue record:
+                if (position is not string fieldName)
+                    throw new LucodeError(item.Line,
+                        $"A record's fields are found by name, like item \"age\" of person, but got {TypeName(position)} {Describe(position)}.");
+                return record.TryGet(fieldName, out var found)
+                    ? found
+                    : throw MissingField((item.Source as VariableExpr)?.Name, fieldName, record, item.Line);
             case List<object> list:
                 return list[Position(position, list.Count, "list", item.Line)];
             case string text:
                 return text[Position(position, text.Length, "text", item.Line)].ToString();
             default:
-                throw new LucodeError(item.Line, $"'item ... of' needs a list or text, but got {TypeName(source)} {Describe(source)}.");
+                throw new LucodeError(item.Line, $"'item ... of' needs a list, text or record, but got {TypeName(source)} {Describe(source)}.");
         }
     }
 
@@ -625,7 +694,8 @@ public sealed class Interpreter
         {
             List<object> list => (double)list.Count,
             string text => (double)text.Length,
-            _ => throw new LucodeError(count.Line, $"'count of' needs a list or text, but got {TypeName(source)} {Describe(source)}."),
+            RecordValue fields => (double)fields.Count,
+            _ => throw new LucodeError(count.Line, $"'count of' needs a list, text or record, but got {TypeName(source)} {Describe(source)}."),
         };
     }
 
@@ -691,6 +761,43 @@ public sealed class Interpreter
                     throw new LucodeError(word.Line, $"Can't read \"{path}\": {e.Message}");
                 }
 
+            case "round":
+                return Math.Round(RequireNumber(args[0], "round", word.Line), MidpointRounding.AwayFromZero);
+            case "floor":
+                return Math.Floor(RequireNumber(args[0], "floor", word.Line));
+            case "ceiling":
+                return Math.Ceiling(RequireNumber(args[0], "ceiling", word.Line));
+            case "abs":
+                return Math.Abs(RequireNumber(args[0], "abs", word.Line));
+            case "sqrt":
+                double root = RequireNumber(args[0], "sqrt", word.Line);
+                if (root < 0)
+                    throw new LucodeError(word.Line, $"Can't take the square root of {Format(root)}.");
+                return Math.Sqrt(root);
+
+            case "random":
+                double sides = RequireNumber(args[0], "random", word.Line);
+                if (sides < 1 || sides != Math.Floor(sides) || sides > int.MaxValue - 1)
+                    throw new LucodeError(word.Line, $"'random' needs a whole number of 1 or more, but got {Format(sides)}.");
+                return (double)_random.Next(1, (int)sides + 1); // 1 up to and including the number, like a die
+
+            case "sum" or "largest" or "smallest" or "average":
+                // "sum of person" is a field of a record that has one called that.
+                if (args[0] is RecordValue holder)
+                    return holder.TryGet(word.Word, out var field)
+                        ? field
+                        : throw MissingField((word.Args[0] as VariableExpr)?.Name, word.Word, holder, word.Line);
+                var numbers = Numbers(args[0], word.Word, word.Line);
+                if (word.Word == "sum") return numbers.Sum();
+                if (numbers.Count == 0)
+                    throw new LucodeError(word.Line, $"Can't find the {word.Word} of an empty list.");
+                return word.Word switch
+                {
+                    "largest" => numbers.Max(),
+                    "smallest" => numbers.Min(),
+                    _ => numbers.Average(),
+                };
+
             case "split":
                 string text = RequireText(args[0], "split", word.Line);
                 string separator = RequireText(args[1], "split ... by", word.Line);
@@ -710,6 +817,26 @@ public sealed class Interpreter
             default:
                 throw new InvalidOperationException($"Unknown word {word.Word}");
         }
+    }
+
+    private static double RequireNumber(object value, string word, int line) =>
+        value is double number
+            ? number
+            : throw new LucodeError(line, $"'{word}' needs a number, but got {TypeName(value)} {Describe(value)}.");
+
+    private static List<double> Numbers(object value, string word, int line)
+    {
+        if (value is not List<object> items)
+            throw new LucodeError(line, $"'{word} of' needs a list of numbers, but got {TypeName(value)} {Describe(value)}.");
+        var numbers = new List<double>();
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (items[i] is not double number)
+                throw new LucodeError(line,
+                    $"'{word} of' needs a list of numbers, but item {i + 1} is {TypeName(items[i])} {Describe(items[i])}.");
+            numbers.Add(number);
+        }
+        return numbers;
     }
 
     private static string RequireText(object value, string word, int line) =>
@@ -777,10 +904,13 @@ public sealed class Interpreter
 
             case TokenType.In:
                 if (right is List<object> members) return members.Any(m => AreEqual(left, m));
+                if (right is RecordValue fields && left is string field) return fields.TryGet(field, out _);
                 if (right is string haystack && left is string needle) return haystack.Contains(needle, StringComparison.Ordinal);
                 throw new LucodeError(line, right is string
                     ? $"Can only look for text inside text, but got {TypeName(left)} {Describe(left)}."
-                    : $"'in' needs a list or text on the right, but got {TypeName(right)} {Describe(right)}.");
+                    : right is RecordValue
+                        ? $"A record's fields are looked for by name, like \"age\" in person, but got {TypeName(left)} {Describe(left)}."
+                        : $"'in' needs a list, text or record on the right, but got {TypeName(right)} {Describe(right)}.");
 
             case TokenType.Plus:
                 if (left is double a && right is double b) return a + b;
@@ -797,6 +927,9 @@ public sealed class Interpreter
             TokenType.Minus => l - r,
             TokenType.Star => l * r,
             TokenType.Slash => r == 0 ? throw new LucodeError(line, "Can't divide by zero.") : l / r,
+            TokenType.Caret => double.IsNaN(Math.Pow(l, r))
+                ? throw new LucodeError(line, $"Can't raise {Format(l)} to the power {Format(r)}.")
+                : Math.Pow(l, r),
             TokenType.Percent => r == 0 ? throw new LucodeError(line, "Can't take the remainder of dividing by zero.") : l % r,
             TokenType.Less => l < r,
             TokenType.LessEqual => l <= r,
@@ -814,6 +947,8 @@ public sealed class Interpreter
         (string a, string b) => a == b,
         (bool a, bool b) => a == b,
         (List<object> a, List<object> b) => a.Count == b.Count && a.Zip(b).All(p => AreEqual(p.First, p.Second)),
+        (RecordValue a, RecordValue b) => a.Count == b.Count
+            && a.Fields.All(f => b.TryGet(f.Key, out var other) && AreEqual(f.Value, other)),
         _ => false, // different kinds of values are never equal
     };
 
@@ -831,6 +966,7 @@ public sealed class Interpreter
         string => "text",
         bool => "true/false",
         List<object> => "a list",
+        RecordValue => "a record",
         _ => "an unknown value",
     };
 
@@ -845,6 +981,9 @@ public sealed class Interpreter
         bool b => b ? "true" : "false",
         string s => s,
         List<object> list => list.Count == 0 ? "list" : "list " + string.Join(", ", list.Select(Show)),
+        RecordValue record => record.Count == 0
+            ? "record"
+            : string.Join(", ", record.Fields.Select(f => $"{f.Key}: {Show(f.Value)}")),
         _ => value.ToString() ?? "",
     };
 }

@@ -1,0 +1,8 @@
+to birthday p
+    p.age = p.age + 1
+    give p
+
+person = name: "Sam", age: 30
+older = birthday person
+print older.age
+print person.age

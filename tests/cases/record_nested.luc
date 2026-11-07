@@ -1,0 +1,12 @@
+person = name: "Sam", address: (city: "Oslo", zip: 123)
+print person.address.city
+person.address.city = "Bergen"
+print person
+print city of person.address
+people = list (name: "A", age: 1), (name: "B", age: 2)
+print count of people
+print (item 2 of people).name
+print item 1 of people
+empty = record
+empty.x = 5
+print empty

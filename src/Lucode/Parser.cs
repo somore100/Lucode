@@ -15,6 +15,8 @@ namespace Lucode;
 ///   for         := "for" "each" NAME "in" expr NEWLINE block
 ///   change      := "add" expr "to" NAME | "remove" "item" sum "from" NAME | "sort" NAME [ "descending" ]
 ///   write       := "write" expr "to" expr
+///   set         := "set" NAME "of" NAME "to" value | NAME ( "." NAME )+ "=" value
+///   value       := NAME ":" expr ( "," NAME ":" expr )*     (a record)  |  expr
 ///   why         := "why" NAME NEWLINE
 ///   if          := "if" expr NEWLINE block ( "else" ( if | NEWLINE block ) )?
 ///   print       := "print" expr NEWLINE
@@ -29,16 +31,23 @@ namespace Lucode;
 ///   comparison  := sum ( ( "in" | "=" | "is" | "is not" | "!=" | "<" | "<=" | ">" | ">=" ) sum )?
 ///   sum         := product ( ( "+" | "-" ) product )*
 ///   product     := unary ( ( "*" | "/" | "%" ) unary )*
-///   unary       := "-" unary | primary
+///   unary       := "-" unary | power
+///   power       := primary ( "^" unary )?
 ///   primary     := NUMBER | TEXT | "true" | "false" | NAME | "(" expr ")"
+///               | "list" ( expr ( "," expr )* )? | "record" ( NAME ":" expr ( "," NAME ":" expr )* )?
+///               | NAME "of" primary | primary ( "." NAME )*
 ///               | "list" ( expr ( "," expr )* )? | "item" sum "of" primary | "count" "of" primary
-///               | ( "upper" | "lower" | "number" | "ask" | "read" ) unary
+///               | ( "upper" | "lower" | "number" | "ask" | "read" | "round" | "floor" | "ceiling" | "abs" | "sqrt" | "random" ) unary
+///               | ( "sum" | "largest" | "smallest" | "average" ) "of" primary
 ///               | "split" unary "by" unary | "join" unary "with" unary
 ///               | "find" unary "in" unary | "replace" unary "with" unary "in" unary | "trim" unary
 /// </summary>
 public sealed class Parser
 {
-    private static readonly string[] Commands = { "print", "if", "else", "rule", "when", "why", "repeat", "while", "to", "give", "for", "add", "remove", "sort", "write" };
+    // "sum of scores", "largest of scores": read like "count of scores".
+    private static readonly string[] MathOf = { "sum", "largest", "smallest", "average" };
+
+    private static readonly string[] Commands = { "print", "if", "else", "rule", "when", "why", "repeat", "while", "to", "give", "for", "add", "remove", "sort", "write", "set" };
 
     // Words that work on values. Each is only special when a value follows, so they still work as names.
     // The second part is the little word between the two values, if there are two.
@@ -51,6 +60,12 @@ public sealed class Parser
             ["number"] = (Array.Empty<string>(), "number text"),
             ["ask"] = (Array.Empty<string>(), "ask \"Name?\""),
             ["read"] = (Array.Empty<string>(), "read \"notes.txt\""),
+            ["round"] = (Array.Empty<string>(), "round 2.5"),
+            ["floor"] = (Array.Empty<string>(), "floor 2.5"),
+            ["ceiling"] = (Array.Empty<string>(), "ceiling 2.5"),
+            ["abs"] = (Array.Empty<string>(), "abs (0 - 3)"),
+            ["sqrt"] = (Array.Empty<string>(), "sqrt 16"),
+            ["random"] = (Array.Empty<string>(), "random 6"),
             ["split"] = (new[] { "by" }, "split text by \",\""),
             ["join"] = (new[] { "with" }, "join items with \", \""),
             ["find"] = (new[] { "in" }, "find \"a\" in text"),
@@ -200,7 +215,7 @@ public sealed class Parser
         if (Check(TokenType.Newline))
             throw Error(giveToken, "'give' needs a value, like: give a + b");
 
-        var value = Expression();
+        var value = ValueOrRecord();
         EndOfLine("the 'give' value");
         return new GiveStmt(value, giveToken.Line);
     }
@@ -270,7 +285,7 @@ public sealed class Parser
         {
             if (Check(TokenType.Newline))
                 throw Error(word, "'add' needs a value and a list, like: add 5 to scores");
-            var value = Expression();
+            var value = ValueOrRecord();
             if (!Match(TokenType.To))
                 throw Error(Peek(), "Expected 'to' after the value, like: add 5 to scores");
             var target = ListName("add");
@@ -313,7 +328,7 @@ public sealed class Parser
         if (Check(TokenType.Newline))
             throw Error(printToken, "'print' needs something to print, like: print \"hello\"");
 
-        var value = Expression();
+        var value = ValueOrRecord();
         EndOfLine("the 'print' value");
         return new PrintStmt(value, printToken.Line);
     }
@@ -332,7 +347,7 @@ public sealed class Parser
             throw Error(name, $"Rule '{name.Text}' needs a formula after the '='.");
 
         int first = _pos;
-        var value = Expression();
+        var value = ValueOrRecord();
         // The formula's tokens as text, so the interpreter can tell two identical rule lines apart from different ones.
         string signature = string.Join(" ", _tokens.Skip(first).Take(_pos - first).Select(t => $"{t.Type}:{t.Text}"));
         EndOfLine($"rule '{name.Text}'");
@@ -351,6 +366,47 @@ public sealed class Parser
             var call = Primary();
             EndOfLine($"the call to '{name.Text}'");
             return new ExprStmt(call, name.Line);
+        }
+
+        if (Check(TokenType.Dot))
+        {
+            // person.age = 31, person.address.city = "Oslo"
+            var path = new List<string>();
+            while (Match(TokenType.Dot))
+            {
+                if (!Check(TokenType.Identifier))
+                    throw Error(Peek(), $"Expected a field name after '.', like: {name.Text}.age = 31");
+                path.Add(Advance().Text);
+            }
+            string shown = $"{name.Text}.{string.Join(".", path)}";
+            if (!Match(TokenType.Equal))
+                throw Error(Peek(), $"Expected '=' after '{shown}', like: {shown} = 31");
+            if (Check(TokenType.Newline))
+                throw Error(name, $"'{shown} =' needs a value after the '='.");
+            var fieldValue = ValueOrRecord();
+            EndOfLine($"the value of '{shown}'");
+            return new SetFieldStmt(name.Text, path, fieldValue, name.Line);
+        }
+
+        if (!Check(TokenType.Equal) && name.Text.Equals("set", StringComparison.OrdinalIgnoreCase))
+        {
+            // set age of person to 31
+            if (!Check(TokenType.Identifier))
+                throw Error(Peek(), "'set' needs a field name, like: set age of person to 31");
+            var field = Advance();
+            if (!IsWord("of"))
+                throw Error(Peek(), $"Expected 'of' after '{field.Text}', like: set {field.Text} of person to 31");
+            Advance();
+            if (!Check(TokenType.Identifier))
+                throw Error(Peek(), "'set ... of' needs the name of a record, like: set age of person to 31");
+            var target = Advance();
+            if (!Match(TokenType.To))
+                throw Error(Peek(), $"Expected 'to' after '{target.Text}', like: set {field.Text} of {target.Text} to 31");
+            if (Check(TokenType.Newline))
+                throw Error(name, "'set' needs a value after 'to', like: set age of person to 31");
+            var newValue = ValueOrRecord();
+            EndOfLine("the 'set' line");
+            return new SetFieldStmt(target.Text, new List<string> { field.Text }, newValue, name.Line);
         }
 
         if (!Check(TokenType.Equal) && (name.Text.Equals("add", StringComparison.OrdinalIgnoreCase)
@@ -384,7 +440,7 @@ public sealed class Parser
         if (Check(TokenType.Newline))
             throw Error(name, $"'{name.Text} =' needs a value after the '='.");
 
-        var value = Expression();
+        var value = ValueOrRecord();
         EndOfLine($"the value of '{name.Text}'");
         return new AssignStmt(name.Text, value, name.Line);
     }
@@ -509,10 +565,36 @@ public sealed class Parser
             var op = Advance();
             return new UnaryExpr(op, Unary(), op.Line);
         }
-        return Primary();
+        return Power();
     }
 
+    /// <summary>2 ^ 10. Binds tighter than * and /, and reads right to left: 2 ^ 3 ^ 2 is 2 ^ 9.</summary>
+    private Expr Power()
+    {
+        var expr = Primary();
+        if (Check(TokenType.Caret))
+        {
+            var op = Advance();
+            expr = new BinaryExpr(expr, op, Unary(), op.Line);
+        }
+        return expr;
+    }
+
+    /// <summary>A value, then any ".field" after it: person.address.city</summary>
     private Expr Primary()
+    {
+        var expr = PrimaryCore();
+        while (Match(TokenType.Dot))
+        {
+            if (!Check(TokenType.Identifier))
+                throw Error(Peek(), "Expected a field name after '.', like: person.age");
+            var field = Advance();
+            expr = new FieldExpr(expr, field.Text, field.Line);
+        }
+        return expr;
+    }
+
+    private Expr PrimaryCore()
     {
         var token = Peek();
 
@@ -537,6 +619,11 @@ public sealed class Parser
                     while (Match(TokenType.Comma));
                 }
                 return new ListExpr(items, token.Line);
+            case TokenType.Record:
+                Advance();
+                return StartsField()
+                    ? RecordFields(token.Line)
+                    : new RecordExpr(new List<(string Name, Expr Value)>(), token.Line);
             case TokenType.Identifier:
                 Advance();
                 if (!_commands.ContainsKey(token.Text) && token.Text.Equals("count", StringComparison.OrdinalIgnoreCase)
@@ -546,7 +633,7 @@ public sealed class Parser
                     return new CountExpr(Primary(), token.Line);
                 }
                 if (!_commands.ContainsKey(token.Text) && token.Text.Equals("item", StringComparison.OrdinalIgnoreCase)
-                    && CheckAny(TokenType.Number, TokenType.LeftParen, TokenType.Identifier)
+                    && CheckAny(TokenType.Number, TokenType.String, TokenType.LeftParen, TokenType.Identifier)
                     && !IsWord("of") && !IsWord("in"))
                 {
                     var position = Sum();
@@ -572,6 +659,18 @@ public sealed class Parser
                     }
                     return new BuiltinExpr(token.Text.ToLowerInvariant(), wordArgs, token.Line);
                 }
+                if (!_commands.ContainsKey(token.Text) && IsWord("of")
+                    && MathOf.Contains(token.Text, StringComparer.OrdinalIgnoreCase))
+                {
+                    Advance();
+                    return new BuiltinExpr(token.Text.ToLowerInvariant(), new List<Expr> { Primary() }, token.Line);
+                }
+                if (!_commands.ContainsKey(token.Text) && IsWord("of"))
+                {
+                    // "age of person": one field of a record (count and item were handled above)
+                    Advance();
+                    return new FieldExpr(Primary(), token.Text, token.Line);
+                }
                 if (_commands.TryGetValue(token.Text, out var arity))
                 {
                     var args = new List<Expr>();
@@ -587,7 +686,7 @@ public sealed class Parser
                 return new VariableExpr(token.Text, token.Line);
             case TokenType.LeftParen:
                 Advance();
-                var inner = Expression();
+                var inner = ValueOrRecord();
                 if (!Match(TokenType.RightParen))
                     throw Error(Peek(), "Missing ')' to close the '('.");
                 return inner;
@@ -598,7 +697,35 @@ public sealed class Parser
         }
     }
 
+    /// <summary>A record written without a keyword (name: "Sam", age: 30), or any other value.</summary>
+    private Expr ValueOrRecord() => StartsField() ? RecordFields(Peek().Line) : Expression();
+
+    private bool StartsField() => Check(TokenType.Identifier) && PeekAt(1).Type == TokenType.Colon;
+
+    private RecordExpr RecordFields(int line)
+    {
+        var fields = new List<(string Name, Expr Value)>();
+        while (true)
+        {
+            var name = Advance();
+            Advance(); // the ':'
+            if (fields.Any(f => f.Name == name.Text))
+                throw Error(name, $"The field '{name.Text}' is given twice.");
+            if (CheckAny(TokenType.Newline, TokenType.RightParen, TokenType.Eof, TokenType.Comma))
+                throw Error(name, $"'{name.Text}:' needs a value after the ':'.");
+            fields.Add((name.Text, Expression()));
+
+            // Only a comma followed by another "name:" continues the record, so a comma that belongs to an outer list stays there.
+            if (!(Check(TokenType.Comma) && PeekAt(1).Type == TokenType.Identifier && PeekAt(2).Type == TokenType.Colon))
+                break;
+            Advance();
+        }
+        return new RecordExpr(fields, line);
+    }
+
     // ----- Helpers -----
+
+    private Token PeekAt(int offset) => _tokens[Math.Min(_pos + offset, _tokens.Count - 1)];
 
     /// <summary>True when the next token is this plain word (words like 'each' or 'of' are only special in context).</summary>
     private bool IsWord(string word) =>
