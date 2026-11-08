@@ -1,0 +1,3 @@
+use "../a.luc"
+use "d.luc"
+print "loading c"

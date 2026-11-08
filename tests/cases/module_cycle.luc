@@ -1,0 +1,2 @@
+use "x.luc"
+print "done"

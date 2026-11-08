@@ -18,6 +18,15 @@ LUC
 printf 'prnt 1\n' > "$tmp/broken.luc"
 
 fail=0
+# A program that uses other files: they are packed in, so it still runs when they are gone.
+mkdir "$tmp/proj" "$tmp/proj/lib"
+printf 'use "lib/shout.luc"\nprint shout "built"\n' > "$tmp/proj/main.luc"
+printf 'to shout word\n    give upper word + "!"\n' > "$tmp/proj/lib/shout.luc"
+"$lucode" build "$tmp/proj/main.luc" -o "$tmp/shouter" >/dev/null || { echo "FAIL: build with modules"; fail=1; }
+rm -rf "$tmp/proj"
+actual=$(cd / && "$tmp/shouter" 2>&1)
+[ "$actual" == "BUILT!" ] || { echo "FAIL: built program with modules printed: $actual"; fail=1; }
+
 "$lucode" build "$tmp/hello.luc" -o "$tmp/hello" >/dev/null || { echo "FAIL: build"; fail=1; }
 actual=$(cd / && echo Sam | "$tmp/hello" 2>&1)
 [ "$actual" == "Name? Hello, Sam" ] || { echo "FAIL: built program printed: $actual"; fail=1; }

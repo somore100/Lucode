@@ -242,6 +242,24 @@ print person                  # name: "Sam", age: 31
 - Two records are equal when they have the same fields with equal values, in any order.
 - `record` is now a keyword, like `list`; a variable called `record` has to be renamed.
 
+### Using other files: `use`
+
+```
+use "helpers.luc"
+print double 21
+```
+
+`use "file.luc"` runs that file once, right there, as if its lines were written in that spot. Its commands, rules,
+variables and `when` blocks all become yours, so a rule in one file can watch a variable in another.
+
+- The path is relative to the file that says `use`, so `use "lib/tools.luc"` and, inside it, `use "../common.luc"` work
+  wherever you run `lucode` from.
+- A file is read only once, so using it again (or two files using each other) does nothing the second time.
+- `use` goes at the top level of a file, not inside an `if`, `when` or command.
+- Using the same name in two files is the usual "already defined" error. An error inside a module names its file:
+  `helpers.luc, Line 4: ...`.
+- `lucode build` packs every file the program uses into the result, so the built program runs without them.
+
 ### Commands: `to` and `give`
 
 ```
@@ -519,6 +537,7 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 - [x] The same packages for lucode itself on the Releases page (`lucode package`, 0.16.0)
 - [x] Records: `person = name: "Sam", age: 30`, `person.age`, `age of person` (0.18.0)
 - [x] Math words: `round`, `floor`, `ceiling`, `abs`, `sqrt`, `random`, `^`, `pi`, `sum of`/`largest of`/`smallest of`/`average of` (0.19.0)
+- [x] Modules: `use "file.luc"` (0.20.0)
 - [x] One-line install script (`install.sh`, 0.17.0)
 - [ ] Homebrew and winget: `packaging/make-manifests.sh vX.Y.Z` writes the files; they still have to be published (a `homebrew-lucode` tap repo; a pull request to winget-pkgs)
 - [ ] Bytecode (`.lucc`): errors found at build time and faster runs

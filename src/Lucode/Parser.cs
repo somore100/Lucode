@@ -15,6 +15,7 @@ namespace Lucode;
 ///   for         := "for" "each" NAME "in" expr NEWLINE block
 ///   change      := "add" expr "to" NAME | "remove" "item" sum "from" NAME | "sort" NAME [ "descending" ]
 ///   write       := "write" expr "to" expr
+///   use         := "use" TEXT                          (top level only)
 ///   set         := "set" NAME "of" NAME "to" value | NAME ( "." NAME )+ "=" value
 ///   value       := NAME ":" expr ( "," NAME ":" expr )*     (a record)  |  expr
 ///   why         := "why" NAME NEWLINE
@@ -47,7 +48,7 @@ public sealed class Parser
     // "sum of scores", "largest of scores": read like "count of scores".
     private static readonly string[] MathOf = { "sum", "largest", "smallest", "average" };
 
-    private static readonly string[] Commands = { "print", "if", "else", "rule", "when", "why", "repeat", "while", "to", "give", "for", "add", "remove", "sort", "write", "set" };
+    private static readonly string[] Commands = { "print", "if", "else", "rule", "when", "why", "repeat", "while", "to", "give", "for", "add", "remove", "sort", "write", "set", "use" };
 
     // Words that work on values. Each is only special when a value follows, so they still work as names.
     // The second part is the little word between the two values, if there are two.
@@ -81,10 +82,16 @@ public sealed class Parser
     private readonly Dictionary<string, int> _commands;
 
     /// <param name="commands">Commands known from earlier input; the REPL passes the same one each time.</param>
-    public Parser(List<Token> tokens, Dictionary<string, int>? commands = null)
+    private readonly ModuleLoader? _modules;
+    private readonly string _key; // which file these tokens are from, for 'use' to find files next to it
+
+    /// <param name="modules">Reads the files named by 'use'; without it a 'use' line loads nothing.</param>
+    public Parser(List<Token> tokens, Dictionary<string, int>? commands = null, ModuleLoader? modules = null, string key = "")
     {
         _tokens = tokens;
         _commands = commands ?? new();
+        _modules = modules;
+        _key = key;
     }
 
     public List<Stmt> Parse()
@@ -386,6 +393,21 @@ public sealed class Parser
             var fieldValue = ValueOrRecord();
             EndOfLine($"the value of '{shown}'");
             return new SetFieldStmt(name.Text, path, fieldValue, name.Line);
+        }
+
+        if (!Check(TokenType.Equal) && name.Text.Equals("use", StringComparison.OrdinalIgnoreCase))
+        {
+            // use "helpers.luc"
+            if (_blockDepth > 0)
+                throw Error(name, "'use' must be at the top level of the file, not inside another block.");
+            if (!Check(TokenType.String))
+                throw Error(Peek(), "'use' needs the name of a file in quotes, like: use \"helpers.luc\"");
+            var file = Advance();
+            EndOfLine("the 'use' line");
+            string fileName = (string)file.Value!;
+            return _modules is null
+                ? new IncludeStmt(fileName, "", new List<Stmt>(), name.Line)
+                : _modules.Include(fileName, _key, _commands, name.Line);
         }
 
         if (!Check(TokenType.Equal) && name.Text.Equals("set", StringComparison.OrdinalIgnoreCase))

@@ -1,25 +1,29 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json;
 
 namespace Lucode;
 
 /// <summary>
 /// `lucode build file.luc`: makes a standalone program. The running lucode is copied and the
-/// program's name and text are added to the end of the copy, followed by their length and a
+/// program's name, text and the files it uses are added to the end of the copy, followed by their length and a
 /// marker. When a lucode starts and finds that marker at the end of itself, it runs the
 /// embedded program instead of reading the command line.
 /// </summary>
 /// <param name="Format">null for a plain executable, otherwise a package kind such as "deb".</param>
 public sealed record BuildOptions(string Input, string? Output, string? Format, string? Version, string? Maintainer, string? Description);
 
+/// <summary>What `lucode build` packs into the program: its name and text, and every file it uses (by path from its folder).</summary>
+public sealed record EmbeddedProgram(string Name, string Source, Dictionary<string, string> Modules);
+
 public static class Bundle
 {
-    private static readonly byte[] Marker = Encoding.ASCII.GetBytes("LUCODEPK"); // 8 bytes
+    private static readonly byte[] Marker = Encoding.ASCII.GetBytes("LUCODEP2"); // 8 bytes
     private const int TrailerSize = 8 + 8; // payload length + marker
 
     /// <summary>The program built into this executable, or null for a plain lucode.</summary>
-    public static (string Name, string Source)? ReadEmbedded()
+    public static EmbeddedProgram? ReadEmbedded()
     {
         string? self = Environment.ProcessPath;
         if (self is null || !File.Exists(self)) return null;
@@ -41,11 +45,9 @@ public static class Bundle
             file.Seek(-TrailerSize - length, SeekOrigin.End);
             file.ReadExactly(payload);
 
-            string text = Encoding.UTF8.GetString(payload);
-            int split = text.IndexOf('\n');
-            return split < 0 ? null : (text[..split], text[(split + 1)..]);
+            return JsonSerializer.Deserialize<EmbeddedProgram>(payload);
         }
-        catch (IOException)
+        catch (Exception e) when (e is IOException or JsonException)
         {
             return null;
         }
@@ -71,19 +73,26 @@ public static class Bundle
 
         string source = File.ReadAllText(input);
         string name = Path.GetFileName(input);
-        // A program with a typo never becomes an executable.
-        if (LanguageServer.Check(source) is { } error)
+        // A program with a typo never becomes an executable. The same pass finds the files it uses, to pack them too.
+        var loader = ModuleLoader.ForDirectory(Path.GetDirectoryName(Path.GetFullPath(input))!, name);
+        SourceMap.Reset(name);
+        try
         {
-            Console.Error.WriteLine($"{name}, {error}");
+            loader.Parse(source);
+        }
+        catch (LucodeError error)
+        {
+            Console.Error.WriteLine($"{error.File ?? name}, {error}");
             return 1;
         }
+        var program = new EmbeddedProgram(name, source, loader.Files.ToDictionary(f => f.Key, f => f.Source));
 
         try
         {
             if (options.Format is null)
-                return BuildExecutable(self, input, name, source, options.Output);
+                return BuildExecutable(self, input, program, options.Output);
 
-            return BuildPackage(self, input, name, source, options, Creator(options.Format));
+            return BuildPackage(self, input, program, options, Creator(options.Format));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -147,7 +156,7 @@ public static class Bundle
         }
     }
 
-    private static int BuildExecutable(string self, string input, string name, string source, string? output)
+    private static int BuildExecutable(string self, string input, EmbeddedProgram program, string? output)
     {
         output ??= OperatingSystem.IsWindows()
             ? Path.ChangeExtension(input, ".exe")
@@ -158,13 +167,13 @@ public static class Bundle
             return 1;
         }
 
-        WriteExecutable(self, output, name, source);
+        WriteExecutable(self, output, program);
         Console.WriteLine($"Built {output}");
         return 0;
     }
 
     /// <summary>Builds the executable in a temporary place and hands it to a package maker.</summary>
-    private static int BuildPackage(string self, string input, string name, string source, BuildOptions options,
+    private static int BuildPackage(string self, string input, EmbeddedProgram program, BuildOptions options,
         Func<PackageInfo, string?> create)
     {
         string temp = Path.Combine(Path.GetTempPath(), "lucode-" + Guid.NewGuid().ToString("N"));
@@ -172,7 +181,7 @@ public static class Bundle
         try
         {
             string exe = Path.Combine(temp, "program");
-            WriteExecutable(self, exe, name, source);
+            WriteExecutable(self, exe, program);
             var info = new PackageInfo(
                 Path.GetFileNameWithoutExtension(input), exe, options.Output,
                 options.Version ?? "1.0", options.Maintainer, options.Description);
@@ -190,10 +199,10 @@ public static class Bundle
         }
     }
 
-    private static void WriteExecutable(string self, string output, string name, string source)
+    private static void WriteExecutable(string self, string output, EmbeddedProgram program)
     {
         File.Copy(self, output, overwrite: true);
-        var payload = Encoding.UTF8.GetBytes(name + "\n" + source);
+        var payload = JsonSerializer.SerializeToUtf8Bytes(program);
         var length = new byte[8];
         BinaryPrimitives.WriteInt64LittleEndian(length, payload.Length);
         using (var file = new FileStream(output, FileMode.Append, FileAccess.Write))

@@ -1,0 +1,3 @@
+use "m.luc"
+to hi
+    print "main"

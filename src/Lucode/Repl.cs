@@ -20,6 +20,8 @@ public static class Repl
 
         var interpreter = new Interpreter();
         var commands = new Dictionary<string, int>();
+        SourceMap.Reset("<prompt>");
+        var modules = new ModuleLoader("", ModuleLoader.FileReader(Directory.GetCurrentDirectory()));
 
         while (true)
         {
@@ -41,14 +43,13 @@ public static class Repl
 
             try
             {
-                var tokens = new Lexer(chunk.ToString()).Tokenize();
-                var program = new Parser(tokens, commands).Parse();
+                var program = modules.Parse(chunk.ToString(), commands);
                 interpreter.Run(program, finish: false);
             }
             catch (LucodeError error)
             {
                 Console.Out.Flush();
-                Console.Error.WriteLine(error);
+                Console.Error.WriteLine(error.File is null ? error.ToString() : $"{error.File}, {error}");
             }
         }
     }

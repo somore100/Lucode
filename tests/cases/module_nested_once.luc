@@ -1,0 +1,4 @@
+use "a.luc"
+use "lib/c.luc"
+use "a.luc"
+print "main done"

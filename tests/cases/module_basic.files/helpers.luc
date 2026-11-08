@@ -1,0 +1,4 @@
+to double x
+    give x * 2
+greeting = "hello from helpers"
+rule ready = go

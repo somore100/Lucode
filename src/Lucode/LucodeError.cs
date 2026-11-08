@@ -10,7 +10,10 @@ public class LucodeError : Exception
         Line = line;
     }
 
-    public override string ToString() => $"Line {Line}: {Message}";
+    /// <summary>The module this error is in, or null when it is in the main program.</summary>
+    public string? File => SourceMap.FileOf(Line);
+
+    public override string ToString() => $"Line {SourceMap.LineIn(Line)}: {Message}";
 }
 
 /// <summary>A name was read before it had a value. 'when' conditions treat this as "not true yet".</summary>

@@ -38,8 +38,12 @@ public sealed class Lexer
     private readonly List<Token> _tokens = new();
     private readonly Stack<int> _indents = new();
 
-    public Lexer(string source)
+    private readonly int _lineBase;
+
+    /// <param name="lineBase">Added to every line number, so lines say which file they are in (see <see cref="SourceMap"/>).</param>
+    public Lexer(string source, int lineBase = 0)
     {
+        _lineBase = lineBase;
         _source = source.Replace("\r\n", "\n").Replace('\r', '\n');
         _indents.Push(0);
     }
@@ -50,7 +54,7 @@ public sealed class Lexer
 
         for (int i = 0; i < lines.Length; i++)
         {
-            int lineNumber = i + 1;
+            int lineNumber = _lineBase + i + 1;
             string line = lines[i];
 
             int indent = MeasureIndent(line, out int contentStart);
@@ -65,7 +69,7 @@ public sealed class Lexer
             Add(TokenType.Newline, "", lineNumber);
         }
 
-        int lastLine = lines.Length;
+        int lastLine = _lineBase + lines.Length;
         while (_indents.Peek() > 0)
         {
             _indents.Pop();

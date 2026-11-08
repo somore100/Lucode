@@ -144,6 +144,11 @@ public sealed class Interpreter
                 }
                 break;
 
+            case IncludeStmt include:
+                foreach (var inner in include.Body)
+                    Execute(inner);
+                break;
+
             case SetFieldStmt set:
                 var newValue = Evaluate(set.Value);
                 var holder = LookUp(new VariableExpr(set.Target, set.Line));
@@ -181,7 +186,7 @@ public sealed class Interpreter
                 // The same line twice is almost surely a copy-paste slip; a different formula is another way to get there.
                 if (alternatives.FirstOrDefault(other => other.Signature == rule.Signature) is { } same)
                     throw new LucodeError(rule.Line,
-                        $"Rule '{rule.Name}' is already defined on line {same.Line}.");
+                        $"Rule '{rule.Name}' is already defined on {SourceMap.Where(same.Line)}.");
                 // Nothing is calculated yet: the formula is stored and worked out each time it's used.
                 alternatives.Add(rule);
                 break;
@@ -253,7 +258,7 @@ public sealed class Interpreter
     {
         if (_rules.TryGetValue(name, out var existingRule))
             throw new LucodeError(line,
-                $"'{name}' is a rule (line {existingRule[0].Line}), so it can't be set directly. " +
+                $"'{name}' is a rule ({SourceMap.Where(existingRule[0].Line)}), so it can't be set directly. " +
                 "Change the values it depends on instead.");
         if (_locals is not null)
         {
@@ -322,9 +327,9 @@ public sealed class Interpreter
         {
             var winner = Winner(lines);
             if (winner is not null)
-                return $"{text}{Because(winner)} (rule on line {winner.Line})";
+                return $"{text}{Because(winner)} (rule on {SourceMap.Where(winner.Line)})";
 
-            var reasons = lines.Select(line => $"line {line.Line}{Because(line, ": ")}");
+            var reasons = lines.Select(line => $"{SourceMap.Where(line.Line)}{Because(line, ": ")}");
             return $"{text}, because none of its {lines.Count} rules held ({string.Join("; ", reasons)})";
         }
 
@@ -522,7 +527,7 @@ public sealed class Interpreter
             string chain = start < 0
                 ? ""
                 : ": " + string.Join(" -> ",
-                    _firing.Skip(start).Append(watcher).Select(w => $"line {w.When.Line}"));
+                    _firing.Skip(start).Append(watcher).Select(w => SourceMap.Where(w.When.Line)));
             throw new LucodeError(watcher.When.Line,
                 $"'when' blocks keep setting each other off{chain}. Stopped after {MaxWhenDepth} in a row.");
         }

@@ -16,11 +16,15 @@ public static class LanguageServer
     private static readonly JsonSerializerOptions Json = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     /// <summary>The error the parser would report for this text, or null if it reads fine.</summary>
-    public static LucodeError? Check(string source)
+    public static LucodeError? Check(string source, string? path = null)
     {
+        string name = path is null ? "" : Path.GetFileName(path);
+        SourceMap.Reset(name);
         try
         {
-            new Parser(new Lexer(source).Tokenize()).Parse();
+            // With a file path, the modules named by 'use' are read from next to it.
+            var modules = path is null ? null : ModuleLoader.ForDirectory(Path.GetDirectoryName(path) ?? "", name);
+            new Parser(new Lexer(source).Tokenize(), null, modules, name).Parse();
             return null;
         }
         catch (LucodeError error)
@@ -95,10 +99,12 @@ public static class LanguageServer
         if (uri is null) return;
 
         var diagnostics = new JsonArray();
-        if (text is not null && Check(text) is { } error)
+        string? path = Uri.TryCreate(uri, UriKind.Absolute, out var parsed) && parsed.IsFile ? parsed.LocalPath : null;
+        if (text is not null && Check(text, path) is { } error)
         {
             var lines = text.Split('\n');
-            int line = Math.Clamp(error.Line - 1, 0, lines.Length - 1);
+            // An error inside a module is shown on the first line, saying which file it is in.
+            int line = error.File is null ? Math.Clamp(SourceMap.LineIn(error.Line) - 1, 0, lines.Length - 1) : 0;
             string content = lines[line].TrimEnd('\r');
             int start = content.Length - content.TrimStart().Length;
             diagnostics.Add(new JsonObject
@@ -110,7 +116,7 @@ public static class LanguageServer
                 },
                 ["severity"] = 1,
                 ["source"] = "lucode",
-                ["message"] = error.Message,
+                ["message"] = error.File is null ? error.Message : $"{error.File}, {error}",
             });
         }
 

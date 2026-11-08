@@ -10,7 +10,10 @@ pass=0; fail=0
 tmp=$(mktemp -d)
 for test in tests/cases/*.luc; do
     name=$(basename "$test" .luc)
+    rm -rf "${tmp:?}"/*
     cp "$test" "$tmp/test.luc"
+    # A test that uses other files brings them in a folder called name.files
+    [ -d "tests/cases/$name.files" ] && cp -r "tests/cases/$name.files/." "$tmp/"
     # A test may bring its own input for 'ask' as name.in; otherwise there is none.
     input=/dev/null
     [ -f "tests/cases/$name.in" ] && input="tests/cases/$name.in"

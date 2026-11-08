@@ -1,0 +1,6 @@
+use "helpers.luc"
+print double 21
+print greeting
+when ready
+    print "ready!"
+go = true

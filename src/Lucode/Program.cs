@@ -1,10 +1,10 @@
 using Lucode;
 
-const string Version = "0.19.0";
+const string Version = "0.20.0";
 
 // A program built with 'lucode build' carries its own text: run that and ignore the command line.
 if (Bundle.ReadEmbedded() is { } embedded)
-    return RunSource(embedded.Name, embedded.Source);
+    return RunSource(embedded.Name, embedded.Source, key => embedded.Modules.GetValueOrDefault(key));
 
 if (args.Length == 0)
 {
@@ -91,21 +91,22 @@ if (!File.Exists(path))
     return 1;
 }
 
-return RunSource(Path.GetFileName(path), File.ReadAllText(path));
+return RunSource(Path.GetFileName(path), File.ReadAllText(path),
+    ModuleLoader.FileReader(Path.GetDirectoryName(Path.GetFullPath(path))!));
 
-static int RunSource(string name, string source)
+static int RunSource(string name, string source, Func<string, string?> readModule)
 {
+    SourceMap.Reset(name);
     try
     {
-        var tokens = new Lexer(source).Tokenize();
-        var program = new Parser(tokens).Parse();
+        var program = new ModuleLoader(name, readModule).Parse(source);
         new Interpreter().Run(program);
         return 0;
     }
     catch (LucodeError error)
     {
         Console.Out.Flush();
-        Console.Error.WriteLine($"{name}, {error}");
+        Console.Error.WriteLine($"{error.File ?? name}, {error}");
         return 1;
     }
 }
