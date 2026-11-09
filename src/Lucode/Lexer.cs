@@ -39,11 +39,14 @@ public sealed class Lexer
     private readonly Stack<int> _indents = new();
 
     private readonly int _lineBase;
+    private readonly List<LucodeError>? _errors;
 
     /// <param name="lineBase">Added to every line number, so lines say which file they are in (see <see cref="SourceMap"/>).</param>
-    public Lexer(string source, int lineBase = 0)
+    /// <param name="errors">When given, a bad line is recorded here and skipped instead of stopping everything (for editors).</param>
+    public Lexer(string source, int lineBase = 0, List<LucodeError>? errors = null)
     {
         _lineBase = lineBase;
+        _errors = errors;
         _source = source.Replace("\r\n", "\n").Replace('\r', '\n');
         _indents.Push(0);
     }
@@ -64,9 +67,22 @@ public sealed class Lexer
             if (content.Trim().Length == 0 || content.TrimStart().StartsWith('#'))
                 continue;
 
-            HandleIndentation(indent, lineNumber);
-            ScanLine(content, lineNumber);
-            Add(TokenType.Newline, "", lineNumber);
+            int tokensBefore = _tokens.Count;
+            var indentsBefore = _errors is null ? null : _indents.Reverse().ToArray();
+            try
+            {
+                HandleIndentation(indent, lineNumber);
+                ScanLine(content, lineNumber);
+                Add(TokenType.Newline, "", lineNumber);
+            }
+            catch (LucodeError error) when (_errors is not null)
+            {
+                // Forget the half-read line completely, so the lines after it still make sense.
+                _errors.Add(error);
+                _tokens.RemoveRange(tokensBefore, _tokens.Count - tokensBefore);
+                _indents.Clear();
+                foreach (var width in indentsBefore!) _indents.Push(width);
+            }
         }
 
         int lastLine = _lineBase + lines.Length;

@@ -6,7 +6,8 @@ extension starts `lucode --lsp` (a small language server built into Lucode) and
 underlines the first line the parser can't read, with the same message
 `lucode file.luc` would give. Install Lucode first and make sure `lucode` is on
 your PATH (or set `lucode.path` in the VS Code settings). Errors that only show
-up while the program runs are not shown.
+up while the program runs are not shown. Hover over a word to see what it means (or how your file defines it), and
+start typing to get suggestions for Lucode words and your own names.
 
 ## Try it
 

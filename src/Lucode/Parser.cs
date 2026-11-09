@@ -94,6 +94,63 @@ public sealed class Parser
         _key = key;
     }
 
+    private List<LucodeError>? _errors;
+
+    /// <summary>Like <see cref="Parse"/>, but a bad statement is recorded in <paramref name="errors"/> and skipped, so one run finds every error (for editors).</summary>
+    public List<Stmt> ParseAll(List<LucodeError> errors)
+    {
+        _errors = errors;
+        var statements = new List<Stmt>();
+        while (!Check(TokenType.Eof))
+            if (Recover() is { } statement)
+                statements.Add(statement);
+        return statements;
+    }
+
+    /// <summary>One statement; in recovering mode an error is noted and the rest of that statement skipped (null is returned).</summary>
+    private Stmt? Recover()
+    {
+        try
+        {
+            return Statement();
+        }
+        catch (LucodeError error) when (_errors is not null)
+        {
+            _errors.Add(error);
+            Skip();
+            return null;
+        }
+    }
+
+    /// <summary>Skips the rest of the bad line, and the indented block under it, if there is one.</summary>
+    private void Skip()
+    {
+        int start = _pos;
+        if (Check(TokenType.Indent))
+        {
+            SkipBlock();
+            return;
+        }
+        while (!CheckAny(TokenType.Newline, TokenType.Dedent, TokenType.Eof))
+            Advance();
+        if (Match(TokenType.Newline) && Check(TokenType.Indent))
+            SkipBlock();
+        if (_pos == start && !Check(TokenType.Eof))
+            Advance(); // always move on, so a stray token can't loop forever
+    }
+
+    private void SkipBlock()
+    {
+        int depth = 0;
+        do
+        {
+            if (Check(TokenType.Indent)) depth++;
+            else if (Check(TokenType.Dedent)) depth--;
+            Advance();
+        }
+        while (depth > 0 && !Check(TokenType.Eof));
+    }
+
     public List<Stmt> Parse()
     {
         var statements = new List<Stmt>();
@@ -209,8 +266,15 @@ public sealed class Parser
         _commands[name.Text] = inputs.Count;
 
         _inCommand = true;
-        var body = Block("to");
-        _inCommand = false;
+        List<Stmt> body;
+        try
+        {
+            body = Block("to");
+        }
+        finally
+        {
+            _inCommand = false;
+        }
         return new CommandStmt(name.Text, inputs, body, toToken.Line);
     }
 
@@ -475,7 +539,8 @@ public sealed class Parser
         var statements = new List<Stmt>();
         _blockDepth++;
         while (!Check(TokenType.Dedent) && !Check(TokenType.Eof))
-            statements.Add(Statement());
+            if (Recover() is { } statement)
+                statements.Add(statement);
         _blockDepth--;
 
         Match(TokenType.Dedent);

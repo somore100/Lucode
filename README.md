@@ -41,6 +41,19 @@ Everything else is kept deliberately plain:
 - **Helpful errors**: `Line 5: Unknown command 'prnt'. Did you mean 'print'?`
 - **Small on purpose**: a feature is added only when it solves a real problem
 
+## Where Lucode fits
+
+Lucode is for small programs that should be easy to read a month later:
+
+- **Small tools without a framework:** a calculator, a converter, a checker. No project setup, no packages.
+- **Live logic:** rules that stay up to date and `when` blocks that react, so a program can describe "how things relate".
+- **Readable automation:** scripts that read files, ask questions, and explain themselves with `why`.
+- **Desktop utilities and small business tools:** price lists, checklists, simple data sorting and reporting.
+- **Learning:** the syntax is close to plain English, and errors suggest the fix.
+- **Data-driven work:** lists and records, with files in and out.
+
+Windows with inputs, outputs, lists and layouts (a first-class GUI) are a goal for later, not something Lucode does today.
+
 ## Getting started
 
 Lucode runs on Linux, Windows and macOS. The easy way: download your system's build from the
@@ -527,7 +540,7 @@ Blocks are marked by indentation (spaces, or tabs counted as 4).
 
 - [x] Interactive mode: type Lucode and see results line by line
 - [x] VS Code extension: syntax highlighting for `.luc` files (`editors/vscode`, with icon)
-- [x] Language server: `lucode --lsp` shows the first parse error while typing, in any editor that supports LSP (VS Code client in `editors/vscode`). Not yet: run-time/static warnings, hover, completion
+- [x] Language server (0.21.0): shows every parse error at once, hover help and completion (keywords, your own commands, variables and fields). Earlier: `lucode --lsp` shows the first parse error while typing, in any editor that supports LSP (VS Code client in `editors/vscode`). Not yet: run-time/static warnings, hover, completion
 - [x] Prebuilt downloads for Linux, Windows and macOS (no .NET install needed): pushing a `v*` tag builds them on GitHub (see Releases)
 - [x] `lucode build`: turn a program into one standalone file (copy of lucode + your program)
 - [x] `lucode build --deb` / `--rpm`: Debian/Ubuntu and Fedora packages (0.11.0 / 0.12.0)

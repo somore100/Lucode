@@ -24,5 +24,22 @@ check "typo is on line 2"       '"start":{"line":1,"character":0}'
 check "fixed text clears it"    '"diagnostics":[]'
 [ "$code" -eq 0 ] || { echo "FAIL: exit code $code, expected 0"; fail=1; }
 
+# Several errors at once, hover and completion.
+out=$({
+    frame '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+    frame '{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///b.luc","text":"prnt 1\nprint 2\nprnt 3\nx = 1\n"}}}'
+    frame '{"jsonrpc":"2.0","id":2,"method":"textDocument/hover","params":{"textDocument":{"uri":"file:///b.luc"},"position":{"line":1,"character":2}}}'
+    frame '{"jsonrpc":"2.0","id":3,"method":"textDocument/completion","params":{"textDocument":{"uri":"file:///b.luc"},"position":{"line":3,"character":0}}}'
+    frame '{"jsonrpc":"2.0","id":4,"method":"shutdown"}'
+    frame '{"jsonrpc":"2.0","method":"exit"}'
+} | dotnet build/lucode.dll --lsp)
+check "first error is reported"   '"start":{"line":0,"character":0}'
+check "second error is reported"  '"start":{"line":2,"character":0}'
+check "both capabilities"         '"hoverProvider":true'
+check "hover explains print"      'Shows a value.'
+check "completion has keywords"   '"label":"print"'
+check "completion has variables"  '"label":"x"'
+[ "$(grep -o "Unknown command 'prnt'" <<<"$out" | wc -l)" -eq 2 ] || { echo "FAIL: expected two typo errors"; fail=1; }
+
 [ "$fail" -eq 0 ] && echo "language server: passed"
 exit $fail
