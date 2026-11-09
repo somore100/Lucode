@@ -310,21 +310,28 @@ public static class AppImagePackage
             return "Making an AppImage needs 'appimagetool'. Download it from " +
                    "https://github.com/AppImage/appimagetool/releases, make it executable (chmod +x) and put it on your PATH.";
 
-        var start = new System.Diagnostics.ProcessStartInfo(tool)
+        // appimagetool downloads a small runtime file from GitHub each time, and that sometimes fails
+        // (a 504 error, say); trying again a moment later usually works.
+        for (int attempt = 1; ; attempt++)
         {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        start.ArgumentList.Add(appDir);
-        start.ArgumentList.Add(output);
-        start.Environment["ARCH"] = arch;
-        start.Environment["APPIMAGE_EXTRACT_AND_RUN"] = "1"; // appimagetool is itself an AppImage; this avoids needing FUSE
+            var start = new System.Diagnostics.ProcessStartInfo(tool)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            start.ArgumentList.Add(appDir);
+            start.ArgumentList.Add(output);
+            start.Environment["ARCH"] = arch;
+            start.Environment["APPIMAGE_EXTRACT_AND_RUN"] = "1"; // appimagetool is itself an AppImage; this avoids needing FUSE
 
-        using var process = System.Diagnostics.Process.Start(start)!;
-        string text = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
-        process.WaitForExit();
-        if (process.ExitCode != 0)
-            return "appimagetool failed:\n" + text;
+            using var process = System.Diagnostics.Process.Start(start)!;
+            string text = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            if (process.ExitCode == 0) break;
+            if (attempt == 4 || !text.Contains("download", StringComparison.OrdinalIgnoreCase))
+                return "appimagetool failed:\n" + text;
+            Thread.Sleep(5000);
+        }
 
         Console.WriteLine($"Built {output} (run it with ./{Path.GetFileName(output)})");
         return null;
