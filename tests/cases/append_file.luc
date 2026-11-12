@@ -1,5 +1,5 @@
 path = "/tmp/lucode_append_file_test.txt"
-write "first" to path
+write "first\n" to path
 append "second" to path
 append "third" to path
 rows = lines read path
