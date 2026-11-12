@@ -43,6 +43,7 @@
         "lucode.path": {
           "type": "string",
           "default": "lucode",
+          "scope": "machine",
           "description": "Path to the lucode program (used for error checking while you type)."
         }
       }

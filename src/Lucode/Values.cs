@@ -25,6 +25,9 @@ public sealed class RecordValue
         return false;
     }
 
+    /// <summary>The same record without this field.</summary>
+    public RecordValue Without(string name) => new(_fields.Where(f => f.Key != name));
+
     /// <summary>The same record with this field set; a new field goes on the end.</summary>
     public RecordValue With(string name, object value)
     {

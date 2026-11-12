@@ -60,13 +60,41 @@ public sealed class ModuleLoader
     }
 
     /// <summary>A reader that looks for files in a folder.</summary>
-    public static Func<string, string?> FileReader(string directory) => key =>
+    public static Func<string, string?> FileReader(string directory, bool confine = false) => key =>
     {
-        string path = Path.Combine(directory, key);
-        return File.Exists(path) ? File.ReadAllText(path) : null;
+        try
+        {
+            string path = Path.GetFullPath(Path.Combine(directory, key));
+            if (confine)
+            {
+                // Editors open files they did not write: only read inside the document's own folder.
+                string root = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                if (!path.StartsWith(root, StringComparison.Ordinal)) return null;
+            }
+            return ReadCapped(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
     };
 
-    public static ModuleLoader ForDirectory(string directory, string mainKey) => new(mainKey, FileReader(directory));
+    private const int MaxModuleBytes = 4 * 1024 * 1024;
+
+    /// <summary>The text of a regular file of reasonable size, or null (so /dev/zero and huge files are not read to the end).</summary>
+    private static string? ReadCapped(string path)
+    {
+        if (!File.Exists(path)) return null;
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        var buffer = new byte[MaxModuleBytes + 1];
+        int total = 0, n;
+        while (total < buffer.Length && (n = stream.Read(buffer, total, buffer.Length - total)) > 0)
+            total += n;
+        return total > MaxModuleBytes ? null : System.Text.Encoding.UTF8.GetString(buffer, 0, total);
+    }
+
+    public static ModuleLoader ForDirectory(string directory, string mainKey, bool confine = false) =>
+        new(mainKey, FileReader(directory, confine));
 
     /// <summary>Parses the main file; any `use` in it (and in the files it uses) is read on the way.</summary>
     public List<Stmt> Parse(string source, Dictionary<string, int>? commands = null) =>

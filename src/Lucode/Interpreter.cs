@@ -132,16 +132,29 @@ public sealed class Interpreter
                 string writeTo = RequireText(Evaluate(write.Path), "write ... to", write.Line);
                 try
                 {
-                    File.WriteAllText(writeTo, Format(Evaluate(write.Value)));
+                    if (write.Append)
+                        File.AppendAllText(writeTo, Format(Evaluate(write.Value)) + "\n");
+                    else
+                        File.WriteAllText(writeTo, Format(Evaluate(write.Value)));
                 }
                 catch (DirectoryNotFoundException)
                 {
                     throw new LucodeError(write.Line, $"Can't write \"{writeTo}\": there is no such folder.");
                 }
-                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
                 {
                     throw new LucodeError(write.Line, $"Can't write \"{writeTo}\": {e.Message}");
                 }
+                break;
+
+            case RemoveFieldStmt unset:
+                var unsetHolder = LookUp(new VariableExpr(unset.Target, unset.Line));
+                if (unsetHolder is not RecordValue unsetRecord)
+                    throw new LucodeError(unset.Line,
+                        $"Can't remove a field of '{unset.Target}': it's {TypeName(unsetHolder)} {Describe(unsetHolder)}, not a record.");
+                if (!unsetRecord.TryGet(unset.Field, out _))
+                    throw MissingField(unset.Target, unset.Field, unsetRecord, unset.Line);
+                Assign(unset.Target, unsetRecord.Without(unset.Field), unset.Line);
                 break;
 
             case IncludeStmt include:
@@ -608,8 +621,9 @@ public sealed class Interpreter
         if (_rules.TryGetValue(variable.Name, out var lines))
             return EvaluateRule(variable.Name, lines, variable.Line);
 
-        string hint = Suggest.Hint(variable.Name, _variables.Keys.Concat(_rules.Keys));
-        throw new MissingValueError(variable.Line, variable.Name, $"'{variable.Name}' has no value yet.{hint}");
+        var known = _variables.Keys.Concat(_rules.Keys).ToList();
+        throw new MissingValueError(variable.Line, variable.Name,
+            () => $"'{variable.Name}' has no value yet.{Suggest.Hint(variable.Name, known)}");
     }
 
     private object EvaluateRule(string name, List<RuleStmt> lines, int usedOnLine)
@@ -620,6 +634,9 @@ public sealed class Interpreter
             throw new LucodeError(usedOnLine,
                 $"Rule '{name}' depends on itself: {string.Join(" -> ", loop)}.");
         }
+
+        if (_evaluating.Count >= 400)
+            throw new LucodeError(usedOnLine, $"Rule '{name}' is the {_evaluating.Count + 1}th rule in a chain of rules that depend on each other. That is too deep.");
 
         _evaluating.Add(name);
         var savedLocals = _locals;
@@ -761,7 +778,7 @@ public sealed class Interpreter
                 {
                     throw new LucodeError(word.Line, $"Can't read \"{path}\": there is no such folder.");
                 }
-                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
                 {
                     throw new LucodeError(word.Line, $"Can't read \"{path}\": {e.Message}");
                 }
@@ -802,6 +819,12 @@ public sealed class Interpreter
                     "smallest" => numbers.Min(),
                     _ => numbers.Average(),
                 };
+
+            case "lines":
+                string whole = RequireText(args[0], "lines", word.Line).Replace("\r\n", "\n").TrimEnd('\n');
+                return whole.Length == 0
+                    ? new List<object>()
+                    : whole.Split('\n').Select(piece => (object)piece).ToList();
 
             case "split":
                 string text = RequireText(args[0], "split", word.Line);

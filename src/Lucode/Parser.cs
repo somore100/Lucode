@@ -14,7 +14,8 @@ namespace Lucode;
 ///   while       := "while" expr NEWLINE block
 ///   for         := "for" "each" NAME "in" expr NEWLINE block
 ///   change      := "add" expr "to" NAME | "remove" "item" sum "from" NAME | "sort" NAME [ "descending" ]
-///   write       := "write" expr "to" expr
+///   write       := ( "write" | "append" ) expr "to" expr
+///   unset       := "remove" "field" NAME "from" NAME
 ///   use         := "use" TEXT                          (top level only)
 ///   set         := "set" NAME "of" NAME "to" value | NAME ( "." NAME )+ "=" value
 ///   value       := NAME ":" expr ( "," NAME ":" expr )*     (a record)  |  expr
@@ -48,7 +49,7 @@ public sealed class Parser
     // "sum of scores", "largest of scores": read like "count of scores".
     private static readonly string[] MathOf = { "sum", "largest", "smallest", "average" };
 
-    private static readonly string[] Commands = { "print", "if", "else", "rule", "when", "why", "repeat", "while", "to", "give", "for", "add", "remove", "sort", "write", "set", "use" };
+    private static readonly string[] Commands = { "print", "if", "else", "rule", "when", "why", "repeat", "while", "to", "give", "for", "add", "remove", "sort", "write", "append", "set", "use" };
 
     // Words that work on values. Each is only special when a value follows, so they still work as names.
     // The second part is the little word between the two values, if there are two.
@@ -61,6 +62,7 @@ public sealed class Parser
             ["number"] = (Array.Empty<string>(), "number text"),
             ["ask"] = (Array.Empty<string>(), "ask \"Name?\""),
             ["read"] = (Array.Empty<string>(), "read \"notes.txt\""),
+            ["lines"] = (Array.Empty<string>(), "lines read \"notes.txt\""),
             ["round"] = (Array.Empty<string>(), "round 2.5"),
             ["floor"] = (Array.Empty<string>(), "floor 2.5"),
             ["ceiling"] = (Array.Empty<string>(), "ceiling 2.5"),
@@ -364,8 +366,24 @@ public sealed class Parser
             return new AddStmt(value, target, word.Line);
         }
 
+        if (IsWord("field"))
+        {
+            Advance();
+            if (!Check(TokenType.Identifier))
+                throw Error(Peek(), "'remove field' needs a field name, like: remove field age from person");
+            var fieldName = Advance();
+            if (!IsWord("from"))
+                throw Error(Peek(), $"Expected 'from' after '{fieldName.Text}', like: remove field {fieldName.Text} from person");
+            Advance();
+            if (!Check(TokenType.Identifier))
+                throw Error(Peek(), "'remove field ... from' needs the name of a record, like: remove field age from person");
+            var holder = Advance();
+            EndOfLine("the 'remove' line");
+            return new RemoveFieldStmt(fieldName.Text, holder.Text, word.Line);
+        }
+
         if (!IsWord("item"))
-            throw Error(Peek(), "'remove' needs an item, like: remove item 2 from scores");
+            throw Error(Peek(), "'remove' needs an item or a field, like: remove item 2 from scores");
         Advance();
         var position = Sum();
         if (!IsWord("from"))
@@ -503,18 +521,20 @@ public sealed class Parser
             return ListChange();
         }
 
-        if (!Check(TokenType.Equal) && name.Text.Equals("write", StringComparison.OrdinalIgnoreCase))
+        if (!Check(TokenType.Equal) && (name.Text.Equals("write", StringComparison.OrdinalIgnoreCase)
+                                        || name.Text.Equals("append", StringComparison.OrdinalIgnoreCase)))
         {
+            string verb = name.Text.ToLowerInvariant();
             if (Check(TokenType.Newline))
-                throw Error(name, "'write' needs text and a file, like: write \"hello\" to \"notes.txt\"");
+                throw Error(name, $"'{verb}' needs text and a file, like: {verb} \"hello\" to \"notes.txt\"");
             var content = Expression();
             if (!Match(TokenType.To))
-                throw Error(Peek(), "Expected 'to' after the text, like: write \"hello\" to \"notes.txt\"");
+                throw Error(Peek(), $"Expected 'to' after the text, like: {verb} \"hello\" to \"notes.txt\"");
             if (Check(TokenType.Newline))
-                throw Error(Peek(), "'write ... to' needs a file name, like: write \"hello\" to \"notes.txt\"");
+                throw Error(Peek(), $"'{verb} ... to' needs a file name, like: {verb} \"hello\" to \"notes.txt\"");
             var path = Expression();
-            EndOfLine("the 'write' line");
-            return new WriteStmt(content, path, name.Line);
+            EndOfLine($"the '{verb}' line");
+            return new WriteStmt(content, path, name.Line, verb == "append");
         }
 
         if (!Match(TokenType.Equal))
@@ -555,7 +575,16 @@ public sealed class Parser
 
     // ----- Expressions -----
 
-    private Expr Expression() => Or();
+    private int _depth;
+
+    private Expr Expression()
+    {
+        // Deep nesting would overflow the stack, which cannot be caught.
+        if (++_depth > 200)
+            throw Error(Peek(), "This is nested too deeply (more than 200 levels of brackets or values inside each other).");
+        try { return Or(); }
+        finally { _depth--; }
+    }
 
     private Expr Or()
     {

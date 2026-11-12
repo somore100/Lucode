@@ -139,7 +139,7 @@ public sealed class Lexer
             if (c == ' ' || c == '\t') { pos++; continue; }
             if (c == '#') break; // comment until end of line
 
-            if (char.IsDigit(c))
+            if (char.IsAsciiDigit(c))
             {
                 pos = ScanNumber(text, pos, line);
                 continue;
@@ -210,12 +210,12 @@ public sealed class Lexer
     private int ScanNumber(string text, int pos, int line)
     {
         int start = pos;
-        while (pos < text.Length && char.IsDigit(text[pos])) pos++;
+        while (pos < text.Length && char.IsAsciiDigit(text[pos])) pos++;
 
-        if (pos + 1 < text.Length && text[pos] == '.' && char.IsDigit(text[pos + 1]))
+        if (pos + 1 < text.Length && text[pos] == '.' && char.IsAsciiDigit(text[pos + 1]))
         {
             pos++;
-            while (pos < text.Length && char.IsDigit(text[pos])) pos++;
+            while (pos < text.Length && char.IsAsciiDigit(text[pos])) pos++;
         }
 
         if (pos < text.Length && (char.IsLetter(text[pos]) || text[pos] == '_'))

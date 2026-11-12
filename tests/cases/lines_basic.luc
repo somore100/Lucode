@@ -1,0 +1,7 @@
+text = "a\nb\nc\n"
+print count of (lines text)
+for each row in lines "one\r\ntwo"
+    print upper row
+print count of (lines "")
+lines = 5
+print lines

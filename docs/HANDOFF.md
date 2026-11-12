@@ -189,3 +189,10 @@ how editor warnings differ from run errors, whether `nor` is worth adding.
   built on the repo's current `main`; the author applies, tests and pushes.
 - Author uses Fedora Linux, writes short casual messages, and likes being asked
   before big design decisions are made for them.
+## 0.22.0 additions (small language)
+- `append text to path` (adds text + newline), `lines text` (list of lines), `remove field NAME from record`.
+- Module namespaces (`use "x.luc" as m`) deliberately NOT done: names are resolved globally at run time, so a namespace needs renaming every reference inside the module. Design it together with the module system before building.
+
+## 0.22.1 hardening (from the Fable 5.2 audit, 2026-11-11)
+Done: catch-all error boundary (file runner, REPL, language server); ASCII-only digits in the lexer; expression nesting limit 200 and rule chain limit 400; module reads capped at 4 MB, IO errors become "can't find the module", and the language server only reads modules inside the document's folder (so `use "../x.luc"` shows an error in the editor only); lazy "did you mean" hint (the 65 s `when` case); `%` escaped in RPM metadata; AppImage version validated; `lucode.path` setting is machine-scoped; CI default token is read-only.
+Not done yet (audit leftovers): published SHA256SUMS + install.sh verification, pinned appimagetool, REPL name poisoning, `why` re-running side effects / locals shadowing, `add` in a loop copying the list (O(n^2)), rule memoisation, build overwriting an existing file without -o, wrong `sudo dnf install` hint for absolute paths, release created before packages are uploaded.

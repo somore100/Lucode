@@ -51,6 +51,11 @@ public static class Repl
                 Console.Out.Flush();
                 Console.Error.WriteLine(error.File is null ? error.ToString() : $"{error.File}, {error}");
             }
+            catch (Exception e) when (e is not OutOfMemoryException)
+            {
+                Console.Out.Flush();
+                Console.Error.WriteLine("Lucode hit an internal problem: " + e.Message);
+            }
         }
     }
 

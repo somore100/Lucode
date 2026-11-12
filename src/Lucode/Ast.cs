@@ -86,7 +86,8 @@ public sealed record AddStmt(Expr Value, string Target, int Line) : Stmt(Line);
 public sealed record RemoveStmt(Expr Position, string Target, int Line) : Stmt(Line);
 
 /// <summary>"write text to \"notes.txt\"": the file now holds exactly that text.</summary>
-public sealed record WriteStmt(Expr Value, Expr Path, int Line) : Stmt(Line);
+public sealed record WriteStmt(Expr Value, Expr Path, int Line, bool Append = false) : Stmt(Line);
+public sealed record RemoveFieldStmt(string Field, string Target, int Line) : Stmt(Line);
 
 /// <summary>`use "helpers.luc"`: the statements of that file, which run here as if they were written in this spot.</summary>
 public sealed record IncludeStmt(string Path, string Key, List<Stmt> Body, int Line) : Stmt(Line);

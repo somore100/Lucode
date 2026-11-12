@@ -25,13 +25,17 @@ public static class LanguageServer
         try
         {
             // With a file path, the modules named by 'use' are read from next to it.
-            var modules = path is null ? null : ModuleLoader.ForDirectory(Path.GetDirectoryName(path) ?? "", name);
+            var modules = path is null ? null : ModuleLoader.ForDirectory(Path.GetDirectoryName(path) ?? "", name, confine: true);
             var tokens = new Lexer(source, 0, errors).Tokenize();
             new Parser(tokens, null, modules, name).ParseAll(errors);
         }
         catch (LucodeError error)
         {
             errors.Add(error);
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            errors.Add(new LucodeError(1, "Lucode could not check this file: " + e.Message));
         }
         return errors.GroupBy(e => e.Line).Select(g => g.First()).OrderBy(e => e.Line).ToList();
     }
@@ -272,7 +276,10 @@ public static class LanguageServer
             if (line is null) return null;
             if (line.Length == 0) break; // blank line ends the headers
             if (line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))
-                length = int.Parse(line["Content-Length:".Length..].Trim());
+                {
+                if (!int.TryParse(line["Content-Length:".Length..].Trim(), out length) || length < 0 || length > 64 * 1024 * 1024)
+                    return null;
+            }
         }
         if (length < 0) return null;
 

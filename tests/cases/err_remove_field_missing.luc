@@ -1,0 +1,2 @@
+person = name: "Sam", age: 30
+remove field agee from person

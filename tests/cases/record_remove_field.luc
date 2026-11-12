@@ -1,0 +1,5 @@
+person = name: "Sam", age: 30
+remove field age from person
+print person
+person.age = 31
+print person

@@ -23,6 +23,8 @@ public static class DebPackage
             Architecture.Arm64 => "arm64",
             _ => null,
         };
+        if (!Regex.IsMatch(info.Version, "^[0-9][A-Za-z0-9._+~-]*$"))
+            return $"'{info.Version}' isn't a valid version. It must start with a digit, like 1.0 or 2.3.1.";
         if (arch is null)
             return $"A .deb for {RuntimeInformation.ProcessArchitecture} isn't supported (only amd64 and arm64).";
 
@@ -183,7 +185,7 @@ public static class RpmPackage
 
         string temp = Path.GetDirectoryName(info.Executable)!;
         string summary = (string.IsNullOrWhiteSpace(info.Description) ? name + ", a program written in Lucode" : info.Description)
-            .ReplaceLineEndings(" ").Trim();
+            .ReplaceLineEndings(" ").Trim().Replace("%", "%%");
 
         // No stripping (it would cut the program off the end of the file), no debug package, no guessing of
         // dependencies: the program is one self-contained file that only needs the system's C libraries.
@@ -197,7 +199,7 @@ public static class RpmPackage
             "License: Unspecified",
             "AutoReqProv: no",
             "Requires: glibc, libstdc++",
-            info.Maintainer is null ? "" : "Packager: " + info.Maintainer.ReplaceLineEndings(" ").Trim(),
+            info.Maintainer is null ? "" : "Packager: " + info.Maintainer.ReplaceLineEndings(" ").Trim().Replace("%", "%%"),
             "Source0: program",
             "%description",
             summary,

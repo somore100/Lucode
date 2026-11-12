@@ -1,6 +1,6 @@
 using Lucode;
 
-const string Version = "0.21.0";
+const string Version = "0.22.1";
 
 // A program built with 'lucode build' carries its own text: run that and ignore the command line.
 if (Bundle.ReadEmbedded() is { } embedded)
@@ -107,6 +107,12 @@ static int RunSource(string name, string source, Func<string, string?> readModul
     {
         Console.Out.Flush();
         Console.Error.WriteLine($"{error.File ?? name}, {error}");
+        return 1;
+    }
+    catch (Exception e) when (e is not OutOfMemoryException)
+    {
+        Console.Out.Flush();
+        Console.Error.WriteLine($"{name}: Lucode hit an internal problem: {e.Message}");
         return 1;
     }
 }

@@ -21,10 +21,21 @@ public sealed class MissingValueError : LucodeError
 {
     public string Name { get; }
 
+    private readonly Func<string>? _lazy;
+
     public MissingValueError(int line, string name, string message) : base(line, message)
     {
         Name = name;
     }
+
+    /// <summary>The message (and its "did you mean" search) is only built if somebody reads it; a 'when' that waits never does.</summary>
+    public MissingValueError(int line, string name, Func<string> message) : base(line, "")
+    {
+        Name = name;
+        _lazy = message;
+    }
+
+    public override string Message => _lazy?.Invoke() ?? base.Message;
 }
 
 internal static class Suggest

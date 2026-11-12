@@ -1,0 +1,8 @@
+path = "/tmp/lucode_append_file_test.txt"
+write "first" to path
+append "second" to path
+append "third" to path
+rows = lines read path
+print count of rows
+print item 2 of rows
+print item 3 of rows
