@@ -1,0 +1,6 @@
+a = true
+b = true
+rule ok = a and b
+to explain a
+    why ok
+explain 5

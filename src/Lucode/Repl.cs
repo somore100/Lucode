@@ -41,6 +41,14 @@ public static class Repl
                 }
             }
 
+            var commandsBefore = new Dictionary<string, int>(commands);
+            void Forget()
+            {
+                // A line that failed (even while running) must not leave its new commands behind.
+                commands.Clear();
+                foreach (var (known, inputs) in commandsBefore) commands[known] = inputs;
+            }
+
             try
             {
                 var program = modules.Parse(chunk.ToString(), commands);
@@ -48,11 +56,13 @@ public static class Repl
             }
             catch (LucodeError error)
             {
+                Forget();
                 Console.Out.Flush();
                 Console.Error.WriteLine(error.File is null ? error.ToString() : $"{error.File}, {error}");
             }
             catch (Exception e) when (e is not OutOfMemoryException)
             {
+                Forget();
                 Console.Out.Flush();
                 Console.Error.WriteLine("Lucode hit an internal problem: " + e.Message);
             }

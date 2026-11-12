@@ -32,7 +32,7 @@ public sealed class Interpreter
     private bool _giving;
     private object? _given;
 
-    private readonly TextWriter _output;
+    private TextWriter _output;
     private readonly TextReader _input;
 
     private sealed class Watcher
@@ -333,24 +333,47 @@ public sealed class Interpreter
     {
         var value = Evaluate(target); // also reports unknown names and rule loops
         string text = $"{target.Name} is {Show(value)}";
+        if (_locals is not null && _locals.ContainsKey(target.Name))
+            return text;
         if (_variables.ContainsKey(target.Name) || !_rules.TryGetValue(target.Name, out var lines))
             return text;
+
+        // The rule was worked out once above, with its output. Looking for the reasons works it out again,
+        // so that pass is silent, and (like every rule) sees only the top-level values, never a command's locals.
+        var savedOutput = _output;
+        var savedLocals = _locals;
+        _output = TextWriter.Null;
+        _locals = null;
+        try
+        {
+            return text + ExplainBecause(lines);
+        }
+        finally
+        {
+            _output = savedOutput;
+            _locals = savedLocals;
+        }
+    }
+
+    /// <summary>The ", because ..." part of a 'why' answer ("" when no input decided it).</summary>
+    private string ExplainBecause(List<RuleStmt> lines)
+    {
 
         if (lines.Count > 1)
         {
             var winner = Winner(lines);
             if (winner is not null)
-                return $"{text}{Because(winner)} (rule on {SourceMap.Where(winner.Line)})";
+                return $"{Because(winner)} (rule on {SourceMap.Where(winner.Line)})";
 
             var reasons = lines.Select(line => $"{SourceMap.Where(line.Line)}{Because(line, ": ")}");
-            return $"{text}, because none of its {lines.Count} rules held ({string.Join("; ", reasons)})";
+            return $", because none of its {lines.Count} rules held ({string.Join("; ", reasons)})";
         }
 
         var deciders = new List<(string Name, object Value)>();
         Collect(lines[0].Value, deciders);
         return deciders.Count == 0
             ? text
-            : $"{text}, because {string.Join(" and ", deciders.Select(d => $"{d.Name} is {Show(d.Value)}"))}";
+            : $", because {string.Join(" and ", deciders.Select(d => $"{d.Name} is {Show(d.Value)}"))}";
     }
 
     /// <summary>The ", because x is 1 and y is 2" part for one rule line (its opening word can be changed).</summary>
@@ -460,9 +483,9 @@ public sealed class Interpreter
             case LogicalExpr logical:
                 // Same order as EvaluateLogical, so we never look at a side that was skipped.
                 bool settles = logical.Operator.Type == TokenType.Or; // the value that ends it early
-                if ((bool)Evaluate(logical.Left) == settles)
+                if (Evaluate(logical.Left) is bool leftValue && leftValue == settles)
                     Collect(logical.Left, found);
-                else if ((bool)Evaluate(logical.Right) == settles)
+                else if (Evaluate(logical.Right) is bool rightValue && rightValue == settles)
                     Collect(logical.Right, found);
                 else
                 {

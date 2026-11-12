@@ -273,6 +273,12 @@ public sealed class Parser
         {
             body = Block("to");
         }
+        catch (LucodeError)
+        {
+            // A command that did not parse must not stay defined (the prompt keeps this table between lines).
+            _commands.Remove(name.Text);
+            throw;
+        }
         finally
         {
             _inCommand = false;
