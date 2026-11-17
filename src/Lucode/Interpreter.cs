@@ -372,7 +372,7 @@ public sealed class Interpreter
         var deciders = new List<(string Name, object Value)>();
         Collect(lines[0].Value, deciders);
         return deciders.Count == 0
-            ? text
+            ? ""
             : $", because {string.Join(" and ", deciders.Select(d => $"{d.Name} is {Show(d.Value)}"))}";
     }
 
