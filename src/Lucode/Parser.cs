@@ -62,6 +62,7 @@ public sealed class Parser
             ["number"] = (Array.Empty<string>(), "number text"),
             ["ask"] = (Array.Empty<string>(), "ask \"Name?\""),
             ["read"] = (Array.Empty<string>(), "read \"notes.txt\""),
+            ["exists"] = (Array.Empty<string>(), "exists \"notes.txt\""),
             ["lines"] = (Array.Empty<string>(), "lines read \"notes.txt\""),
             ["round"] = (Array.Empty<string>(), "round 2.5"),
             ["floor"] = (Array.Empty<string>(), "floor 2.5"),

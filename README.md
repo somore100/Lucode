@@ -240,6 +240,7 @@ print person.age              # 30
 print age of person           # 30, the same thing in words
 person.age = 31               # or: set age of person to 31
 print person                  # name: "Sam", age: 31
+remove field age from person  # takes the field out again
 ```
 
 - Read a field with `person.age` or `age of person`; change it (or add a new one) with `person.age = 31`
@@ -408,6 +409,15 @@ write join names with "\n" to "names.txt"
 there (add `"\n"` yourself if you want a line break at the end). Numbers and
 lists are turned into text the same way `print` does. A folder that doesn't
 exist is an error.
+
+`append text to path` adds the text and a new line to the end of the file (it
+creates the file if it isn't there), which suits logs. `exists path` is true when that file is there (check it before `read` on a first run). `lines text` turns text
+into a list of its lines, so reading a file line by line is:
+
+```
+for each row in lines read "log.txt"
+    print row
+```
 
 ### Installing Lucode: packages
 

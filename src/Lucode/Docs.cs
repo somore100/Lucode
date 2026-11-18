@@ -38,6 +38,7 @@ internal static class Docs
         ["of"] = ("Links a word to the thing it works on: `item 2 of xs`, `count of xs`, `age of person`.", "age of person"),
         ["write"] = ("Puts text in a file, replacing what was there.", "write \"hello\" to \"notes.txt\""),
         ["append"] = ("Adds text and a new line to the end of a file, creating it if needed.", "append \"saved\" to \"log.txt\""),
+        ["exists"] = ("True when a file is there.", "if exists \"notes.txt\""),
         ["lines"] = ("Splits text into a list of its lines.", "for each line in lines read \"notes.txt\""),
         ["read"] = ("Gives the whole text of a file.", "data = read \"notes.txt\""),
         ["ask"] = ("Shows a question and gives back the line the user types.", "name = ask \"Name?\""),

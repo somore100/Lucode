@@ -843,6 +843,9 @@ public sealed class Interpreter
                     _ => numbers.Average(),
                 };
 
+            case "exists":
+                return File.Exists(RequireText(args[0], "exists", word.Line));
+
             case "lines":
                 string whole = RequireText(args[0], "lines", word.Line).Replace("\r\n", "\n").TrimEnd('\n');
                 return whole.Length == 0

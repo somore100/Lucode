@@ -1,0 +1,63 @@
+# An expense tracker. It keeps what you spend in expenses.txt, one "category,amount" per line.
+# Run it from a folder where it may create that file: lucode expenses.luc
+file = "expenses.txt"
+budget = 100
+
+# Reads the saved file into a list of records (nothing yet on the first run).
+to load_all
+    found = list
+    if exists file
+        for each row in lines read file
+            parts = split row by ","
+            add (record category: item 1 of parts, amount: number (item 2 of parts)) to found
+    give found
+
+to total_of items
+    total = 0
+    for each one in items
+        total = total + one.amount
+    give total
+
+to show_report items
+    if count of items = 0
+        print "Nothing recorded yet."
+    else
+        seen = list
+        for each one in items
+            if not (one.category in seen)
+                add one.category to seen
+        sort seen
+        for each name in seen
+            subtotal = 0
+            for each one in items
+                if one.category = name
+                    subtotal = subtotal + one.amount
+            print name + ": " + subtotal
+        everything = total_of items
+        print "Total: " + everything
+
+entries = load_all
+
+# Rules stay up to date by themselves as entries are added.
+rule spent = total_of entries
+rule left = budget - spent
+
+when spent > budget
+    print "Careful: you are over budget by " + (spent - budget)
+
+running = true
+while running
+    print "1) add   2) report   3) quit"
+    choice = ask "Choose:"
+    if choice = "1"
+        category = lower trim (ask "Category:")
+        amount = number ask "Amount:"
+        add (record category: category, amount: amount) to entries
+        append category + "," + amount to file
+        print "Saved. Left of the budget: " + left
+    else if choice = "2"
+        show_report entries
+    else if choice = "3"
+        running = false
+    else
+        print "Please type 1, 2 or 3."

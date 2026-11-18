@@ -199,3 +199,6 @@ Not done yet (audit leftovers): published SHA256SUMS + install.sh verification, 
 
 ## 0.22.2 correctness (audit leftovers)
 `why` inside a command no longer mixes in the command's locals (rules only see top-level values) and its second look at a rule is silent, so a rule with side effects prints once. The REPL forgets commands defined by a line that failed to parse or run. Still open: O(n^2) `add` in loops, rule memoisation, build overwrite, dnf hint, SHA256SUMS, pinned appimagetool, release ordering.
+
+## 0.23.0
+Added `exists path` after writing examples/expenses.luc (first real program; the gap it exposed). Check whether that program ran cleanly and note any other gaps here.
