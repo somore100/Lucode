@@ -201,4 +201,7 @@ Not done yet (audit leftovers): published SHA256SUMS + install.sh verification, 
 `why` inside a command no longer mixes in the command's locals (rules only see top-level values) and its second look at a rule is silent, so a rule with side effects prints once. The REPL forgets commands defined by a line that failed to parse or run. Still open: O(n^2) `add` in loops, rule memoisation, build overwrite, dnf hint, SHA256SUMS, pinned appimagetool, release ordering.
 
 ## 0.23.0
-Added `exists path` after writing examples/expenses.luc (first real program; the gap it exposed). Check whether that program ran cleanly and note any other gaps here.
+Added `exists path` after writing examples/expenses.luc (first real program; the gap it exposed). The program ran cleanly (add, report, saved file, live rules, over-budget `when`). No other gaps found yet.
+
+## Release checksums
+The release workflow has a `checksums` job that publishes SHA256SUMS after all packages are attached; install.sh verifies the tar.gz against it (a release without the file only warns). Untested until the next tag run.

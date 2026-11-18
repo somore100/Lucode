@@ -38,7 +38,26 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 echo "Downloading Lucode $tag for $rid..."
-curl -fsSL "https://github.com/$repo/releases/download/$tag/$name.tar.gz" | tar xz -C "$tmp"
+base="https://github.com/$repo/releases/download/$tag"
+curl -fsSL -o "$tmp/$name.tar.gz" "$base/$name.tar.gz"
+
+# Releases publish SHA256SUMS; check the download against it (older releases have none).
+if curl -fsSL -o "$tmp/SHA256SUMS" "$base/SHA256SUMS" 2>/dev/null; then
+    expected=$(grep "  $name.tar.gz\$" "$tmp/SHA256SUMS" | cut -d' ' -f1)
+    if command -v sha256sum >/dev/null 2>&1; then actual=$(sha256sum "$tmp/$name.tar.gz" | cut -d' ' -f1)
+    elif command -v shasum >/dev/null 2>&1; then actual=$(shasum -a 256 "$tmp/$name.tar.gz" | cut -d' ' -f1)
+    else actual=""; fi
+    if [ -z "$expected" ] || [ -z "$actual" ]; then
+        echo "Couldn't check the download against SHA256SUMS; stopping to be safe." >&2; exit 1
+    fi
+    if [ "$expected" != "$actual" ]; then
+        echo "The download does not match SHA256SUMS (expected $expected, got $actual). Not installing." >&2; exit 1
+    fi
+    echo "Checksum OK."
+else
+    echo "Note: this release has no SHA256SUMS, so the download was not checked." >&2
+fi
+tar xzf "$tmp/$name.tar.gz" -C "$tmp"
 
 mkdir -p "$dir"
 install -m 755 "$tmp/$name/lucode" "$dir/lucode"
