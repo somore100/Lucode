@@ -75,9 +75,13 @@ public static class DebPackage
             using (var d = File.OpenRead(dataTar)) ArWriter.Add(deb, "data.tar.gz", d);
         }
 
-        Console.WriteLine($"Built {output} (installs /usr/bin/{name}; try: sudo apt install ./{output})");
+        Console.WriteLine($"Built {output} (installs /usr/bin/{name}; try: sudo apt install {InstallPath(output)})");
         return null;
     }
+
+    /// <summary>How to name the package file for an installer: a relative name needs "./" in front, a full path does not.</summary>
+    internal static string InstallPath(string output) =>
+        Path.IsPathRooted(output) ? output : "./" + output;
 
     private static string? OneLine(string? text) =>
         string.IsNullOrWhiteSpace(text) ? null : text.ReplaceLineEndings(" ").Trim();
@@ -246,7 +250,7 @@ public static class RpmPackage
         string built = Directory.GetFiles(rpmDir, "*.rpm", SearchOption.AllDirectories).Single();
         string output = info.Output ?? Path.GetFileName(built);
         File.Copy(built, output, overwrite: true);
-        Console.WriteLine($"Built {output} (installs /usr/bin/{name}; try: sudo dnf install ./{output})");
+        Console.WriteLine($"Built {output} (installs /usr/bin/{name}; try: sudo dnf install {DebPackage.InstallPath(output)})");
         return null;
     }
 }

@@ -205,3 +205,7 @@ Added `exists path` after writing examples/expenses.luc (first real program; the
 
 ## Release checksums
 The release workflow has a `checksums` job that publishes SHA256SUMS after all packages are attached; install.sh verifies the tar.gz against it (a release without the file only warns). Untested until the next tag run.
+
+## 0.23.1 audit leftovers
+Done: `build` no longer overwrites a file it did not build (only an earlier lucode build, or when -o is given); install hint after .deb/.rpm builds is right for full paths.
+Left on purpose: `add` in a loop is O(n^2) because lists are shared by reference and a safe in-place add needs copy-on-write (design first); pinned appimagetool (need to confirm the tagged release's file names); draft-then-publish releases (gh cannot always find draft releases by tag, risky for the working pipeline); rule memoisation.

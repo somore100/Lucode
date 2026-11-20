@@ -158,6 +158,7 @@ public static class Bundle
 
     private static int BuildExecutable(string self, string input, EmbeddedProgram program, string? output)
     {
+        bool chosen = output is not null;
         output ??= OperatingSystem.IsWindows()
             ? Path.ChangeExtension(input, ".exe")
             : Path.ChangeExtension(input, null);
@@ -167,9 +168,32 @@ public static class Bundle
             return 1;
         }
 
+        // A name worked out from the input may only replace an earlier build, never some other file.
+        if (!chosen && File.Exists(output) && !IsLucodeBuild(output))
+        {
+            Console.Error.WriteLine($"'{output}' already exists and isn't a program built by Lucode. Pick a name with -o.");
+            return 1;
+        }
+
         WriteExecutable(self, output, program);
         Console.WriteLine($"Built {output}");
         return 0;
+    }
+
+    private static bool IsLucodeBuild(string path)
+    {
+        try
+        {
+            using var file = File.OpenRead(path);
+            if (file.Length < 16) return false;
+            file.Seek(-Marker.Length, SeekOrigin.End);
+            var tail = new byte[Marker.Length];
+            return file.Read(tail) == tail.Length && tail.AsSpan().SequenceEqual(Marker);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Builds the executable in a temporary place and hands it to a package maker.</summary>
