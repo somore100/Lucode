@@ -50,6 +50,8 @@ class Lucode < Formula
 
   def install
     bin.install "lucode"
+    # macOS only runs signed programs; sign the installed copy (ad hoc, no account needed).
+    system "codesign", "--force", "--sign", "-", bin/"lucode" if OS.mac?
   end
 
   test do
